@@ -15,5 +15,8 @@
 
 # Python pycache:
 __pycache__/
+.pytest_cache/
 # Ignored by the build system
 /setup.cfg
+
+venv/
