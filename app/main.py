@@ -1,9 +1,10 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-import pandas as pd
-from io import StringIO
+from dataset_manager import load_csv_from_gcs
+from fastapi import HTTPException
+from google.api_core.exceptions import NotFound
 
 app = FastAPI()
 
@@ -15,20 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get('/', response_description="Retorna a mensagem de boas vindas", 
-    responses={
-        200: {
-            'description': 'Mensagem de boas vindas retornada com sucesso',
-            'content': {
-                'application/json': {
-                    'example': {
-                        'message': '4Banks API!'
-                    }
-                }
-            }
-        }
-    }
-)
+@app.get('/', response_description="Retorna a mensagem de boas vindas",)
 def hello():
     """
     Rota inicial da API
@@ -36,37 +24,39 @@ def hello():
     """
     return JSONResponse(content={'message': '4Banks API!'})
 
-@app.post("/uploadcsv/")
-async def create_upload_file(file: UploadFile = File(...)):
+@app.get('/datasets/{dataset_id}', response_description="Carrega os dados de um dataset",)
+def load_dataset(dataset_id: str):
     '''
-    Esta função lida com solicitações POST para carregar um arquivo CSV.
-    
-    Parâmetros: 
-        file (UploadFile, obrigatório): Um arquivo CSV para upload. O campo deve ser incluído no corpo da solicitação POST.
-                                        O arquivo CSV é lido e decodificado em um DataFrame pandas.
-    
-    Retorna: 
-        dict: Um dicionário contendo:
-            filename (str): O nome do arquivo carregado.
-            rows (int): O número de linhas no arquivo CSV carregado.
-            columns (int): O número de colunas no arquivo CSV carregado.
-    '''
-    contents = await file.read()
-    df = pd.read_csv(StringIO(contents.decode('utf-8')))
+    Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage. 
 
-    return {
-        "filename": file.filename,
-        "rows": df.shape[0],
-        "columns": df.shape[1]
-    }
+    Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket, 
+    a função retorna um código de status HTTP 404 e uma mensagem de erro personalizada.
+
+    Parâmetros:
+        dataset_id (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
+                                       deve estar localizado no bucket do Google Cloud Storage sob o 
+                                       caminho `{dataset_id}/{dataset_id}.csv`.
+
+    Retorna:
+        JSONResponse: Um JSONResponse onde o conteúdo é uma lista de registros do arquivo CSV baixado.
+                      Cada registro é um dicionário onde a chave é o nome da coluna e o valor é o valor da célula.
+
+    Raises:
+        HTTPException: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
+                       A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
+    '''
+    try:
+        df = load_csv_from_gcs(dataset_id)
+        return JSONResponse(content=df.to_dict(orient='records'))
+    except NotFound:
+        raise HTTPException(status_code=404, detail=f'Dataset "{dataset_id}" não encontrado no bucket')
 
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
-        title="Your application name",
+        title="4banks API",
         version="1.0.0",
-        description="This is a very custom OpenAPI schema",
         routes=app.routes,
     )
     openapi_schema["info"]["x-logo"] = {
