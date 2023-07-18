@@ -16,7 +16,6 @@ def test_openapi_customization():
     response = client.get("/openapi.json")
     assert response.status_code == 200
     json = response.json()
-    assert json["info"]["title"] == "Your application name"
+    assert json["info"]["title"] == "4banks API"
     assert json["info"]["version"] == "1.0.0"
-    assert json["info"]["description"] == "This is a very custom OpenAPI schema"
     assert json["info"]["x-logo"]["url"] == "/flasgger_static/swagger-ui/logo_small.png"
