@@ -1,9 +1,23 @@
 from google.cloud import storage
+import google.auth
 import pandas as pd
 from io import StringIO
 from google.oauth2 import service_account
 
 BUCKET_NAME = 'banks-dev-392615.appspot.com'
+CREDENTIALS_PATH = 'banks-dev-392615-80afa5d33712.json'
+
+def get_credentials():
+    '''
+    Tenta carregar as credenciais a partir do arquivo JSON. Se não conseguir,
+    cai de volta para as credenciais padrão do Google Cloud.
+    '''
+    try:
+        return service_account.Credentials.from_service_account_file(CREDENTIALS_PATH)
+    except Exception as e:
+        print(f"Failed to load credentials from file, falling back to default credentials: {e}")
+        credentials, _ = google.auth.default()
+        return credentials
 
 def load_csv_from_gcs(dataset_id: str) -> pd.DataFrame:
     '''
@@ -20,7 +34,7 @@ def load_csv_from_gcs(dataset_id: str) -> pd.DataFrame:
     Raises:
         google.cloud.exceptions.NotFound: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
     '''
-    credentials = service_account.Credentials.from_service_account_file('banks-dev-392615-80afa5d33712.json')
+    credentials = get_credentials()
     storage_client = storage.Client(credentials=credentials)
     bucket = storage_client.bucket(BUCKET_NAME)
     blob_name = f'{dataset_id}/{dataset_id}.csv'
@@ -46,7 +60,7 @@ def save_df_to_gcs(df: pd.DataFrame, dataset_id: str, file_name: str) -> None:
     Raises:
         google.cloud.exceptions.GoogleCloudError: Se ocorrer um erro ao tentar salvar o arquivo no bucket.
     '''
-    credentials = service_account.Credentials.from_service_account_file('banks-dev-392615-80afa5d33712.json')
+    credentials = get_credentials()
     storage_client = storage.Client(credentials=credentials)
     bucket = storage_client.bucket(BUCKET_NAME)
     blob_name = f'{dataset_id}/{file_name}.csv'
