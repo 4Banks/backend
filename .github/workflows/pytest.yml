@@ -3,13 +3,16 @@ name: Python application test with Github Actions
 on:
   pull_request:
     branches: 
-      - '**' # Run this workflow for PRs made to any branch
-  workflow_dispatch: # Allows for manual trigger
+      - '**'
+  workflow_dispatch:
 
 jobs:
   build:
 
     runs-on: ubuntu-latest
+
+    env:
+      GCP_CREDENTIALS: ${{ secrets.GAP_DEV_AUTH }}
 
     steps:
     - uses: actions/checkout@v2
@@ -25,8 +28,12 @@ jobs:
         pip install pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
+    - name: Create GCP Credentials
+      run: echo "$GCP_CREDENTIALS" | base64 --decode > gcp_credentials.json
+
     - name: Test with pytest
       run: |
+        export GOOGLE_APPLICATION_CREDENTIALS=gcp_credentials.json
         pytest
 
     - name: Show pytest failure in PR if it occurs
