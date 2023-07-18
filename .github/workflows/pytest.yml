@@ -29,7 +29,7 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: Create GCP Credentials
-      run: echo "$GCP_CREDENTIALS" | base64 --decode > gcp_credentials.json
+      run: echo "$GCP_CREDENTIALS" > gcp_credentials.json
 
     - name: Test with pytest
       run: |
