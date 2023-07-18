@@ -1,14 +1,11 @@
 from fastapi.testclient import TestClient
-from fastapi import UploadFile
-import pandas as pd
-from io import StringIO
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from app.main import app
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../app')))
+from app import main
 
-client = TestClient(app)
+client = TestClient(main.app)
 
 def test_read_main():
     response = client.get("/")
