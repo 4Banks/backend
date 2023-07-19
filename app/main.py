@@ -2,9 +2,13 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from dataset_manager import load_csv_from_gcs
 from fastapi import HTTPException
 from google.api_core.exceptions import NotFound
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
+from dataset_manager import load_csv_from_gcs
 
 app = FastAPI()
 
