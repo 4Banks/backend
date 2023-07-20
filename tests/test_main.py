@@ -42,3 +42,10 @@ def test_balance_dataset():
     data = response.json()
     assert 'message' in data
     assert 'Resultado salvo com sucesso no seguinte local: gs://<BUCKET_NAME>/test_id/test_file_0_random_under_sampling.csv' == data['message']
+
+def test_superficial_analysis():
+    response = client.get('/datasets/test_id/test_file_0/superficial_analysis')
+    assert response.status_code == 200
+    data = response.json()
+    assert 'message' in data
+    assert 'Resultado salvo com sucesso no seguinte local: gs://<BUCKET_NAME>/test_id/test_file_0_superficial_analysis.csv' == data['message']
