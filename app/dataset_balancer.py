@@ -7,7 +7,16 @@ from imblearn.over_sampling import ADASYN
 
 SEED = 42
 
-def random_under_sampling(df):
+def random_under_sampling(df: pd.DataFrame) -> pd.DataFrame:
+	'''
+		Aplica o método de under sampling aleatório em um dataset
+
+		Parâmetros:
+			df: DataFrame a ser balanceado
+		
+		Retorno:
+			DataFrame balanceado
+	'''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 
@@ -18,7 +27,16 @@ def random_under_sampling(df):
 
 	return df_under
 
-def random_over_sampling(df):
+def random_over_sampling(df: pd.DataFrame) -> pd.DataFrame:
+	'''
+		Aplica o método de over sampling aleatório em um dataset
+
+		Parâmetros:
+			df: DataFrame a ser balanceado
+		
+		Retorno:
+			DataFrame balanceado
+	'''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 
@@ -29,7 +47,16 @@ def random_over_sampling(df):
 
 	return df_over
 
-def smote(df):
+def smote(df: pd.DataFrame) -> pd.DataFrame:
+	'''
+		Aplica o método de over sampling SMOTE em um dataset
+
+		Parâmetros:
+			df: DataFrame a ser balanceado
+		
+		Retorno:
+			DataFrame balanceado
+	'''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 
@@ -40,7 +67,16 @@ def smote(df):
 
 	return df_smote
 
-def bsmote(df):
+def bsmote(df: pd.DataFrame) -> pd.DataFrame:
+	'''
+		Aplica o método de over sampling BorderlineSMOTE em um dataset
+
+		Parâmetros:
+			df: DataFrame a ser balanceado
+		
+		Retorno:
+			DataFrame balanceado
+	'''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 
@@ -51,7 +87,16 @@ def bsmote(df):
 
 	return df_bsmote
 
-def adasyn(df):
+def adasyn(df: pd.DataFrame) -> pd.DataFrame:
+	'''
+		Aplica o método de over sampling ADASYN em um dataset
+
+		Parâmetros:
+			df: DataFrame a ser balanceado
+		
+		Retorno:
+			DataFrame balanceado
+	'''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 
