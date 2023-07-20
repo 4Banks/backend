@@ -29,8 +29,8 @@ def hello():
     """
     return JSONResponse(content={'message': '4Banks API!'})
 
-@app.get('/datasets/{dataset_id}', response_description="Carrega os dados de um dataset",)
-def load_dataset(dataset_id: str):
+@app.get('/datasets/{dataset_id}/{file_name}', response_description="Carrega os dados de um dataset",)
+def load_dataset(dataset_id: str, file_name: str):
     '''
     Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage. 
 
@@ -51,12 +51,12 @@ def load_dataset(dataset_id: str):
                        A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
     '''
     try:
-        df = load_csv_from_gcs(dataset_id)
+        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
         return JSONResponse(content=df.to_dict(orient='records'))
     except NotFound:
-        raise HTTPException(status_code=404, detail=f'Dataset "{dataset_id}" não encontrado no bucket')
+        raise HTTPException(status_code=404, detail=f'Dataset "{dataset_id}/{file_name}" não encontrado no bucket')
 
-@app.get('/datasets/{dataset_id}/balance', response_description="Balanceia os dados de um dataset",)
+@app.get('/datasets/{dataset_id}/{file_name}/balance', response_description="Balanceia os dados de um dataset",)
 def balance_dataset(dataset_id: str, file_name: str, method: str):
     '''
     Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
