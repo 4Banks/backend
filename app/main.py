@@ -10,18 +10,19 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 from dataset_manager import load_csv_from_gcs, save_df_to_gcs
 from dataset_balancer import random_under_sampling, random_over_sampling, smote, bsmote, adasyn
+from superficial_analysis import generate_statistics
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=['http://localhost:3000'],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
-@app.get('/', response_description="Retorna a mensagem de boas vindas",)
+@app.get('/', response_description='Retorna a mensagem de boas vindas',)
 def hello():
     '''
     Rota inicial da API.
@@ -31,8 +32,8 @@ def hello():
     '''
     return JSONResponse(content={'message': '4Banks API!'})
 
-@app.get('/datasets/{dataset_id}/{file_name}', response_description="Carrega os dados de um dataset",)
-def load_dataset(dataset_id: str, file_name: str):
+@app.get('/datasets/{dataset_id}/{file_name}', response_description='Carrega os dados de um dataset',)
+def load_dataset(dataset_id: str, file_name: str, index: bool = False):
     '''
     Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage. 
 
@@ -44,6 +45,7 @@ def load_dataset(dataset_id: str, file_name: str):
                                         deve estar localizado no bucket do Google Cloud Storage sob o
                                         caminho `{dataset_id}/{file_name}.csv`.
     - `file_name` (str, obrigatório): O nome do arquivo CSV.
+    - `index` (bool, opcional): Se o DataFrame possui índice a ser carregado. O padrão é `False`.
 
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista de registros do arquivo CSV baixado.
@@ -54,13 +56,16 @@ def load_dataset(dataset_id: str, file_name: str):
                        A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
     '''
     try:
-        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
+        if index:
+            df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name, index=0)
+        else:
+            df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
         return JSONResponse(content=df.to_dict(orient='records'))
     except NotFound:
         raise HTTPException(status_code=404, detail=f'Dataset "{dataset_id}/{file_name}" não encontrado no bucket')
 
 @app.get('/datasets/{dataset_id}/{file_name}/balance', response_description="Balanceia os dados de um dataset",)
-def balance_dataset(dataset_id: str, file_name: str, method: str):
+def balance_dataset(dataset_id: str, file_name: str, method: str, index: bool = False):
     '''
     Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
     balanceia os dados e retorna o resultado.
@@ -79,6 +84,7 @@ def balance_dataset(dataset_id: str, file_name: str, method: str):
         - smote
         - bsmote
         - adasyn
+    - `index` (bool, opcional): Se o DataFrame possui índice a ser carregado. O padrão é `False`.
 
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é um dicionário com a mensagem de que o arquivo 
@@ -90,7 +96,10 @@ def balance_dataset(dataset_id: str, file_name: str, method: str):
     - `HTTPException`: Se o método de balanceamento não for encontrado.
                        A exceção contém um código de status HTTP 400 e uma mensagem detalhada.
     '''
-    df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
+    if index:
+        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name, index=0)
+    else:
+        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
 
     if method == 'random_under_sampling':
         df = random_under_sampling(df)
@@ -107,9 +116,47 @@ def balance_dataset(dataset_id: str, file_name: str, method: str):
     
     save_df_to_gcs(df, dataset_id, f'{file_name}_{method}')
 
-    gcs_path = f"gs://<BUCKET_NAME>/{dataset_id}/{file_name}_{method}.csv"
+    gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_{method}.csv'
 
-    return {"message": f"Resultado salvo com sucesso no seguinte local: {gcs_path}"}
+    return {'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'}
+
+@app.get('/datasets/{dataset_id}/{file_name}/superficial_analysis', response_description='Gera estatísticas superficiais sobre os dados de um dataset',)
+def generate_superficial_analysis(dataset_id: str, file_name: str, index: bool = False):
+    '''
+    Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
+    gera estatísticas superficiais sobre os dados e retorna o resultado.
+
+    Se o arquivo CSV correspondente ao `dataset_id` não for encontrado no bucket,
+    a função retorna um código de status HTTP 404 e uma mensagem de erro personalizada.
+
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
+                                       deve estar localizado no bucket do Google Cloud Storage sob o
+                                       caminho `{dataset_id}/{file_name}.csv`.
+    - `file_name` (str, obrigatório): O nome do arquivo CSV.
+    - `index` (bool, opcional): Se o DataFrame possui índice a ser carregado. O padrão é `False`.
+
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é um dicionário com a mensagem de que o arquivo
+                      foi salvo com sucesso e o caminho do arquivo no Google Cloud Storage.
+
+    ### Gera uma exceção:
+    - `HTTPException`: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
+                       A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
+    '''
+    if index:
+        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name, index=0)
+    else:
+        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
+
+    df = generate_statistics(df)
+
+    save_df_to_gcs(df, dataset_id, f'{file_name}_superficial_analysis', index=True)
+
+    gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_superficial_analysis.csv'
+
+    return {'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'}
+
 
 def custom_openapi():
     '''
@@ -121,18 +168,18 @@ def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
-        title="4banks API",
-        version="1.0.0",
+        title='4banks API',
+        version='1.0.0',
         routes=app.routes,
     )
-    openapi_schema["info"]["x-logo"] = {
-        "url": "/flasgger_static/swagger-ui/logo_small.png"
+    openapi_schema['info']['x-logo'] = {
+        'url': '/flasgger_static/swagger-ui/logo_small.png'
     }
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
 app.openapi = custom_openapi
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host='0.0.0.0', port=8000)
