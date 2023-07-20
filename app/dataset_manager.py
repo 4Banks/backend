@@ -22,7 +22,7 @@ def get_credentials():
         credentials, _ = google.auth.default()
         return credentials
 
-def load_csv_from_gcs(dataset_id: str, file_name: str) -> pd.DataFrame:
+def load_csv_from_gcs(dataset_id: str, file_name: str, index: bool = False) -> pd.DataFrame:
     '''
     Esta função baixa e carrega um arquivo CSV de um bucket do Google Cloud Storage.
 
@@ -31,6 +31,7 @@ def load_csv_from_gcs(dataset_id: str, file_name: str) -> pd.DataFrame:
                                         deve estar localizado no bucket do Google Cloud Storage sob o
                                         caminho `{dataset_id}/{file_name}.csv`.
     - `file_name` (str, obrigatório): O nome do arquivo CSV.
+    - `index` (bool, opcional): Se o índice do DataFrame deve ser salvo no arquivo CSV. O padrão é `False`.
 
     ### Retorna:
     - `pd.DataFrame`: Um DataFrame pandas contendo os dados do arquivo CSV baixado.
@@ -45,13 +46,16 @@ def load_csv_from_gcs(dataset_id: str, file_name: str) -> pd.DataFrame:
     blob = bucket.blob(blob_name)
     
     blob_content_as_string = blob.download_as_text()
-    data = pd.read_csv(StringIO(blob_content_as_string))
+    if index:
+        data = pd.read_csv(StringIO(blob_content_as_string), index_col=0)
+    else:
+        data = pd.read_csv(StringIO(blob_content_as_string))
 
     print(data.head())
 
     return data
 
-def save_df_to_gcs(df: pd.DataFrame, dataset_id: str, file_name: str) -> None:
+def save_df_to_gcs(df: pd.DataFrame, dataset_id: str, file_name: str, index: bool = False) -> None:
     '''
     Esta função salva um DataFrame pandas como um arquivo CSV em um bucket do Google Cloud Storage e torna o arquivo carregado público.
 
@@ -60,6 +64,7 @@ def save_df_to_gcs(df: pd.DataFrame, dataset_id: str, file_name: str) -> None:
     - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV será salvo no bucket do Google Cloud Storage 
                                        sob o caminho `{dataset_id}/{file_name}.csv`.
     - `file_name` (str, obrigatório): O nome do arquivo CSV.
+    - `index` (bool, opcional): Se o índice do DataFrame deve ser salvo no arquivo CSV. O padrão é `False`.
 
     ### Não retorna nada.
 
@@ -72,4 +77,4 @@ def save_df_to_gcs(df: pd.DataFrame, dataset_id: str, file_name: str) -> None:
     blob_name = f'{dataset_id}/{file_name}.csv'
     blob = bucket.blob(blob_name)
 
-    blob.upload_from_string(df.to_csv(index=False), 'text/csv')
+    blob.upload_from_string(df.to_csv(index=index), 'text/csv')
