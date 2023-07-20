@@ -9,14 +9,14 @@ SEED = 42
 
 def random_under_sampling(df: pd.DataFrame) -> pd.DataFrame:
 	'''
-		Aplica o método de under sampling aleatório em um dataset
+    Aplica o método de subamostragem aleatória (Random Under Sampling) em um DataFrame.
 
-		Parâmetros:
-			df: DataFrame a ser balanceado
-		
-		Retorno:
-			DataFrame balanceado
-	'''
+    ### Parâmetros:
+    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
+    
+    ### Retorna:
+    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método de subamostragem aleatória.
+    '''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 
@@ -29,14 +29,14 @@ def random_under_sampling(df: pd.DataFrame) -> pd.DataFrame:
 
 def random_over_sampling(df: pd.DataFrame) -> pd.DataFrame:
 	'''
-		Aplica o método de over sampling aleatório em um dataset
+    Aplica o método de superamostragem aleatória (Random Over Sampling) em um DataFrame.
 
-		Parâmetros:
-			df: DataFrame a ser balanceado
-		
-		Retorno:
-			DataFrame balanceado
-	'''
+    ### Parâmetros:
+    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
+    
+    ### Retorna:
+    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método de superamostragem aleatória.
+    '''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 
@@ -49,14 +49,14 @@ def random_over_sampling(df: pd.DataFrame) -> pd.DataFrame:
 
 def smote(df: pd.DataFrame) -> pd.DataFrame:
 	'''
-		Aplica o método de over sampling SMOTE em um dataset
+    Aplica o método de superamostragem SMOTE em um DataFrame.
 
-		Parâmetros:
-			df: DataFrame a ser balanceado
-		
-		Retorno:
-			DataFrame balanceado
-	'''
+    ### Parâmetros:
+    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
+    
+    ### Retorna:
+    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método SMOTE.
+    '''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 
@@ -69,14 +69,14 @@ def smote(df: pd.DataFrame) -> pd.DataFrame:
 
 def bsmote(df: pd.DataFrame) -> pd.DataFrame:
 	'''
-		Aplica o método de over sampling BorderlineSMOTE em um dataset
+    Aplica o método de superamostragem BorderlineSMOTE em um DataFrame.
 
-		Parâmetros:
-			df: DataFrame a ser balanceado
-		
-		Retorno:
-			DataFrame balanceado
-	'''
+    ### Parâmetros:
+    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
+    
+    ### Retorna:
+    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método BorderlineSMOTE.
+    '''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 
@@ -89,14 +89,14 @@ def bsmote(df: pd.DataFrame) -> pd.DataFrame:
 
 def adasyn(df: pd.DataFrame) -> pd.DataFrame:
 	'''
-		Aplica o método de over sampling ADASYN em um dataset
+    Aplica o método de superamostragem ADASYN em um DataFrame.
 
-		Parâmetros:
-			df: DataFrame a ser balanceado
-		
-		Retorno:
-			DataFrame balanceado
-	'''
+    ### Parâmetros:
+    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
+    
+    ### Retorna:
+    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método ADASYN.
+    '''
 	X = df.drop('Class', axis=1)
 	y = df['Class']
 

@@ -11,6 +11,9 @@ def get_credentials():
     '''
     Tenta carregar as credenciais a partir do arquivo JSON. Se não conseguir,
     cai de volta para as credenciais padrão do Google Cloud.
+
+    ### Retorno:
+    - `google.auth.credentials.Credentials`: Objeto de credenciais do Google Cloud.
     '''
     try:
         return service_account.Credentials.from_service_account_file(CREDENTIALS_PATH)
@@ -23,17 +26,17 @@ def load_csv_from_gcs(dataset_id: str, file_name: str) -> pd.DataFrame:
     '''
     Esta função baixa e carrega um arquivo CSV de um bucket do Google Cloud Storage.
 
-    Parâmetros:
-        dataset_id (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
                                         deve estar localizado no bucket do Google Cloud Storage sob o
                                         caminho `{dataset_id}/{file_name}.csv`.
-        file_name (str, obrigatório): O nome do arquivo CSV.
+    - `file_name` (str, obrigatório): O nome do arquivo CSV.
 
-    Retorna:
-        pd.DataFrame: Um DataFrame pandas contendo os dados do arquivo CSV baixado.
+    ### Retorna:
+    - `pd.DataFrame`: Um DataFrame pandas contendo os dados do arquivo CSV baixado.
 
-    Raises:
-        google.cloud.exceptions.NotFound: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
+    ### Gera uma exceção:
+    - `google.cloud.exceptions.NotFound`: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
     '''
     credentials = get_credentials()
     storage_client = storage.Client(credentials=credentials)
@@ -52,16 +55,16 @@ def save_df_to_gcs(df: pd.DataFrame, dataset_id: str, file_name: str) -> None:
     '''
     Esta função salva um DataFrame pandas como um arquivo CSV em um bucket do Google Cloud Storage e torna o arquivo carregado público.
 
-    Parâmetros:
-        df (pd.DataFrame, obrigatório): O DataFrame a ser salvo.
-        dataset_id (str, obrigatório): O ID do dataset. O arquivo CSV será salvo no bucket do Google Cloud Storage 
+    ### Parâmetros:
+    - `df` (pd.DataFrame, obrigatório): O DataFrame a ser salvo.
+    - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV será salvo no bucket do Google Cloud Storage 
                                        sob o caminho `{dataset_id}/{file_name}.csv`.
-        file_name (str, obrigatório): O nome do arquivo CSV.
+    - `file_name` (str, obrigatório): O nome do arquivo CSV.
 
-    Não retorna nada.
+    ### Não retorna nada.
 
-    Raises:
-        google.cloud.exceptions.GoogleCloudError: Se ocorrer um erro ao tentar salvar o arquivo no bucket.
+    ### Gera uma exceção:
+    - `google.cloud.exceptions.GoogleCloudError`: Se ocorrer um erro ao tentar salvar o arquivo no bucket.
     '''
     credentials = get_credentials()
     storage_client = storage.Client(credentials=credentials)

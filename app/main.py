@@ -23,10 +23,12 @@ app.add_middleware(
 
 @app.get('/', response_description="Retorna a mensagem de boas vindas",)
 def hello():
-    """
-    Rota inicial da API
-    Este endpoint retorna uma mensagem de boas vindas
-    """
+    '''
+    Rota inicial da API.
+
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse com uma mensagem de boas vindas.
+    '''
     return JSONResponse(content={'message': '4Banks API!'})
 
 @app.get('/datasets/{dataset_id}/{file_name}', response_description="Carrega os dados de um dataset",)
@@ -37,17 +39,18 @@ def load_dataset(dataset_id: str, file_name: str):
     Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket, 
     a função retorna um código de status HTTP 404 e uma mensagem de erro personalizada.
 
-    Parâmetros:
-        dataset_id (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
-                                       deve estar localizado no bucket do Google Cloud Storage sob o 
-                                       caminho `{dataset_id}/{dataset_id}.csv`.
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
+                                        deve estar localizado no bucket do Google Cloud Storage sob o
+                                        caminho `{dataset_id}/{file_name}.csv`.
+    - `file_name` (str, obrigatório): O nome do arquivo CSV.
 
-    Retorna:
-        JSONResponse: Um JSONResponse onde o conteúdo é uma lista de registros do arquivo CSV baixado.
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista de registros do arquivo CSV baixado.
                       Cada registro é um dicionário onde a chave é o nome da coluna e o valor é o valor da célula.
 
-    Raises:
-        HTTPException: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
+    ### Gera uma exceção:
+    - `HTTPException`: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
                        A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
     '''
     try:
@@ -62,29 +65,29 @@ def balance_dataset(dataset_id: str, file_name: str, method: str):
     Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
     balanceia os dados e retorna o resultado.
 
-    Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket,
+    Se o arquivo CSV correspondente ao `dataset_id` não for encontrado no bucket,
     a função retorna um código de status HTTP 404 e uma mensagem de erro personalizada.
 
-    Parâmetros:
-        dataset_id (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
                                         deve estar localizado no bucket do Google Cloud Storage sob o
                                         caminho `{dataset_id}/{file_name}.csv`.
-        file_name (str, obrigatório): O nome do arquivo CSV.
-        method (str, obrigatório): O método de balanceamento a ser utilizado. Os valores possíveis são:
-                                    - random_under_sampling
-                                    - random_over_sampling
-                                    - smote
-                                    - bsmote
-                                    - adasyn
+    - `file_name` (str, obrigatório): O nome do arquivo CSV.
+    - `method` (str, obrigatório): O método de balanceamento a ser utilizado. Os valores possíveis são:
+        - random_under_sampling
+        - random_over_sampling
+        - smote
+        - bsmote
+        - adasyn
 
-    Retorna:
-        JSONResponse: Um JSONResponse onde o conteúdo é um dicionário com a mensagem de que o arquivo 
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é um dicionário com a mensagem de que o arquivo 
                       foi salvo com sucesso e o caminho do arquivo no Google Cloud Storage.
     
-    Raises:
-        HTTPException: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
+    ### Gera uma exceção:
+    - `HTTPException`: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
                        A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
-        HTTPException: Se o método de balanceamento não for encontrado.
+    - `HTTPException`: Se o método de balanceamento não for encontrado.
                        A exceção contém um código de status HTTP 400 e uma mensagem detalhada.
     '''
     df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
@@ -109,6 +112,12 @@ def balance_dataset(dataset_id: str, file_name: str, method: str):
     return {"message": f"Resultado salvo com sucesso no seguinte local: {gcs_path}"}
 
 def custom_openapi():
+    '''
+    Função que cria e retorna o esquema OpenAPI personalizado.
+
+    ### Retorna:
+    - `dict`: O esquema OpenAPI personalizado.
+    '''
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
