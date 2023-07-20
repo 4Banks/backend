@@ -34,7 +34,7 @@ jobs:
     - name: Test with pytest
       run: |
         export GOOGLE_APPLICATION_CREDENTIALS=gcp_credentials.json
-        pytest
+        pytest -vv
 
     - name: Show pytest failure in PR if it occurs
       uses: actions/github-script@v3
