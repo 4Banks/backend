@@ -51,8 +51,6 @@ def load_csv_from_gcs(dataset_id: str, file_name: str, index: bool = False) -> p
     else:
         data = pd.read_csv(StringIO(blob_content_as_string))
 
-    print(data.head())
-
     return data
 
 def save_df_to_gcs(df: pd.DataFrame, dataset_id: str, file_name: str, index: bool = False) -> None:
