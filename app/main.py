@@ -60,7 +60,7 @@ def load_dataset(dataset_id: str, file_name: str, index: bool = False):
             df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name, index=0)
         else:
             df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
-        return JSONResponse(content=df.to_dict(orient='records'))
+        return JSONResponse(content=df.head().to_dict(orient='records'))
     except NotFound:
         raise HTTPException(status_code=404, detail=f'Dataset "{dataset_id}/{file_name}" não encontrado no bucket')
 
@@ -172,9 +172,6 @@ def custom_openapi():
         version='1.0.0',
         routes=app.routes,
     )
-    openapi_schema['info']['x-logo'] = {
-        'url': '/flasgger_static/swagger-ui/logo_small.png'
-    }
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
