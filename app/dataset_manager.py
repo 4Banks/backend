@@ -3,24 +3,22 @@ import google.auth
 import pandas as pd
 from io import StringIO
 from google.oauth2 import service_account
+import tempfile
 
 BUCKET_NAME = 'banks-dev-392615.appspot.com'
 CREDENTIALS_PATH = 'banks-dev-392615-80afa5d33712.json'
 
-def get_credentials():
-    '''
-    Tenta carregar as credenciais a partir do arquivo JSON. Se não conseguir,
-    cai de volta para as credenciais padrão do Google Cloud.
+credentials = None
 
-    ### Retorno:
-    - `google.auth.credentials.Credentials`: Objeto de credenciais do Google Cloud.
-    '''
-    try:
-        return service_account.Credentials.from_service_account_file(CREDENTIALS_PATH)
-    except Exception as e:
-        print(f"Failed to load credentials from file, falling back to default credentials: {e}")
-        credentials, _ = google.auth.default()
-        return credentials
+def get_credentials():
+    global credentials
+    if credentials is None:
+        try:
+            credentials = service_account.Credentials.from_service_account_file(CREDENTIALS_PATH)
+        except Exception as e:
+            print(f"Failed to load credentials from file, falling back to default credentials: {e}")
+            credentials, _ = google.auth.default()
+    return credentials
 
 def load_csv_from_gcs(dataset_id: str, file_name: str, index: bool = False) -> pd.DataFrame:
     '''
@@ -45,11 +43,15 @@ def load_csv_from_gcs(dataset_id: str, file_name: str, index: bool = False) -> p
     blob_name = f'{dataset_id}/{file_name}.csv'
     blob = bucket.blob(blob_name)
     
-    blob_content_as_string = blob.download_as_text()
-    if index:
-        data = pd.read_csv(StringIO(blob_content_as_string), index_col=0)
-    else:
-        data = pd.read_csv(StringIO(blob_content_as_string))
+    credentials = get_credentials()
+    storage_client = storage.Client(credentials=credentials)
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob_name = f'{dataset_id}/{file_name}.csv'
+    blob = bucket.blob(blob_name)
+    
+    with tempfile.NamedTemporaryFile() as temp_file:
+        blob.download_to_filename(temp_file.name)
+        data = pd.read_csv(temp_file.name, index_col=0) if index else pd.read_csv(temp_file.name)
 
     return data
 
@@ -75,4 +77,6 @@ def save_df_to_gcs(df: pd.DataFrame, dataset_id: str, file_name: str, index: boo
     blob_name = f'{dataset_id}/{file_name}.csv'
     blob = bucket.blob(blob_name)
 
-    blob.upload_from_string(df.to_csv(index=index), 'text/csv')
+    with tempfile.NamedTemporaryFile() as temp_file:
+        df.to_csv(temp_file.name, index=index)
+        blob.upload_from_filename(temp_file.name, content_type='text/csv')
