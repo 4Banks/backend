@@ -376,13 +376,14 @@ def execute_pipeline(dataset_id: str,
         df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
     print('Dados carregados com sucesso')
 
-    print('Iniciando tratamento de dados faltantes...')
     if missing_data_method is not None:
+        print('Iniciando tratamento de dados faltantes...', end=' ')
         df = handle_missing_data(df, missing_data_method, missing_data_constant_value)
-    print('Tratamento de dados faltantes finalizado')
+        print('Tratamento de dados faltantes finalizado')
 
-    print('Iniciando tratamento de outliers...')
+    
     if outliers_treatment_method is not None:
+        print('Iniciando tratamento de outliers...', end=' ')
         outliers_dict = detect_outliers(df)
         df = transform_outliers(df,
                                 outliers_dict,
@@ -392,10 +393,10 @@ def execute_pipeline(dataset_id: str,
                                 outliers_winsorization,
                                 outliers_treatment_method,
                                 outliers_treatment_constant_value)
-    print('Tratamento de outliers finalizado')
+        print('Tratamento de outliers finalizado')
 
-    print('Iniciando balanceamento...')
     if balance_method is not None:
+        print(f'Iniciando balanceamento "{balance_method}"...', end=' ')
         if balance_method == 'random_under_sampling':
             df = random_under_sampling(df)
         elif balance_method == 'random_over_sampling':
@@ -408,13 +409,13 @@ def execute_pipeline(dataset_id: str,
             df = adasyn(df)
         else:
             raise HTTPException(status_code=400, detail=f'Método "{balance_method}" não encontrado')
-    print('Balanceamento finalizado')
-
-    print('Iniciando análise superficial...')
+        print('Balanceamento finalizado')
+    
     if superficial_analysis:
-        df_superficial_analysis = generate_statistics(df)
+        print('Iniciando análise superficial...', end=' ')
+        df_superficial_analysis = generate_statistics(df.copy())
         save_df_to_gcs(df_superficial_analysis, dataset_id, f'{file_name}_superficial_analysis', index=True)
-    print('Análise superficial finalizada')
+        print('Análise superficial finalizada')
 
     print('Iniciando treinamento dos modelos...')
     if ml_logistic_regression:
