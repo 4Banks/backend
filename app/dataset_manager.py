@@ -18,7 +18,6 @@ def get_credentials():
     try:
         return service_account.Credentials.from_service_account_file(CREDENTIALS_PATH)
     except Exception as e:
-        print(f"Failed to load credentials from file, falling back to default credentials.")
         credentials, _ = google.auth.default()
         return credentials
 
