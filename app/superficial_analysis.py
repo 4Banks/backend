@@ -12,11 +12,12 @@ def generate_statistics(df: pd.DataFrame) -> pd.DataFrame:
     ### Retorno:
         - `DataFrame` com as estatísticas.
     '''
-    df = df.drop(columns=['Class'])
-
     results = {}
 
-    for column in df.columns:
+    columns = df.columns.copy()
+    columns = columns.drop('Class')
+
+    for column in columns:
         column_data = df[column]
         column_mean = column_data.mean()
         column_median = column_data.median()
@@ -49,5 +50,5 @@ def generate_statistics(df: pd.DataFrame) -> pd.DataFrame:
         }
 
     results_df = pd.DataFrame.from_dict(results, orient='index')
-
+    
     return results_df.transpose()
