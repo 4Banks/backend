@@ -7,102 +7,32 @@ from imblearn.over_sampling import ADASYN
 
 SEED = 42
 
+def apply_resampler(df: pd.DataFrame, resampler) -> pd.DataFrame:
+    X = df.drop('Class', axis=1)
+    y = df['Class']
+
+    X_resampled, y_resampled = resampler.fit_resample(X, y)
+    df_resampled = pd.DataFrame(X_resampled)
+    df_resampled['Class'] = y_resampled
+
+    return df_resampled
+
 def random_under_sampling(df: pd.DataFrame) -> pd.DataFrame:
-	'''
-    Aplica o método de subamostragem aleatória (Random Under Sampling) em um DataFrame.
-
-    ### Parâmetros:
-    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
-    
-    ### Retorna:
-    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método de subamostragem aleatória.
-    '''
-	X = df.drop('Class', axis=1)
-	y = df['Class']
-
-	under_sampler = RandomUnderSampler(random_state=SEED)
-	X_under, y_under = under_sampler.fit_resample(X, y)
-	df_under = pd.DataFrame(X_under)
-	df_under['Class'] = y_under
-
-	return df_under
+    under_sampler = RandomUnderSampler(random_state=SEED)
+    return apply_resampler(df, under_sampler)
 
 def random_over_sampling(df: pd.DataFrame) -> pd.DataFrame:
-	'''
-    Aplica o método de superamostragem aleatória (Random Over Sampling) em um DataFrame.
-
-    ### Parâmetros:
-    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
-    
-    ### Retorna:
-    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método de superamostragem aleatória.
-    '''
-	X = df.drop('Class', axis=1)
-	y = df['Class']
-
-	over_sampler = RandomOverSampler(random_state=SEED)
-	X_over, y_over = over_sampler.fit_resample(X, y)
-	df_over = pd.DataFrame(X_over)
-	df_over['Class'] = y_over
-
-	return df_over
+    over_sampler = RandomOverSampler(random_state=SEED)
+    return apply_resampler(df, over_sampler)
 
 def smote(df: pd.DataFrame) -> pd.DataFrame:
-	'''
-    Aplica o método de superamostragem SMOTE em um DataFrame.
-
-    ### Parâmetros:
-    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
-    
-    ### Retorna:
-    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método SMOTE.
-    '''
-	X = df.drop('Class', axis=1)
-	y = df['Class']
-
-	smote = SMOTE(random_state=SEED, sampling_strategy='minority')
-	X_smote, y_smote = smote.fit_resample(X, y)
-	df_smote = pd.DataFrame(X_smote)
-	df_smote['Class'] = y_smote
-
-	return df_smote
+    smote_sampler = SMOTE(random_state=SEED, sampling_strategy='minority')
+    return apply_resampler(df, smote_sampler)
 
 def bsmote(df: pd.DataFrame) -> pd.DataFrame:
-	'''
-    Aplica o método de superamostragem BorderlineSMOTE em um DataFrame.
-
-    ### Parâmetros:
-    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
-    
-    ### Retorna:
-    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método BorderlineSMOTE.
-    '''
-	X = df.drop('Class', axis=1)
-	y = df['Class']
-
-	b_smote = BorderlineSMOTE(random_state=SEED, sampling_strategy='minority')
-	X_bsmote, y_bsmote = b_smote.fit_resample(X, y)
-	df_bsmote = pd.DataFrame(X_bsmote)
-	df_bsmote['Class'] = y_bsmote
-
-	return df_bsmote
+    bsmote_sampler = BorderlineSMOTE(random_state=SEED, sampling_strategy='minority')
+    return apply_resampler(df, bsmote_sampler)
 
 def adasyn(df: pd.DataFrame) -> pd.DataFrame:
-	'''
-    Aplica o método de superamostragem ADASYN em um DataFrame.
-
-    ### Parâmetros:
-    - `df` (pd.DataFrame, obrigatório): DataFrame a ser balanceado.
-    
-    ### Retorna:
-    - `pd.DataFrame`: DataFrame balanceado após a aplicação do método ADASYN.
-    '''
-	X = df.drop('Class', axis=1)
-	y = df['Class']
-
-	adasyn = ADASYN(random_state=SEED, sampling_strategy='minority')
-	X_adasyn, y_adasyn = adasyn.fit_resample(X, y)
-	df_adasyn = pd.DataFrame(X_adasyn)
-	df_adasyn['Class'] = y_adasyn
-
-	return df_adasyn
+    adasyn_sampler = ADASYN(random_state=SEED, sampling_strategy='minority')
+    return apply_resampler(df, adasyn_sampler)

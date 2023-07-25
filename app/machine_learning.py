@@ -70,6 +70,7 @@ def train_and_evaluate_model(dataset_id: str,
                              model_name: str,
                              df: pd.DataFrame = None,
                              index: bool = False) -> dict:
+    
     start_training_task(dataset_id, model_name)
 
     try:
@@ -106,8 +107,7 @@ def train_and_evaluate_model(dataset_id: str,
         }
 
         save_json_to_gcs(result, dataset_id, f'{file_name}_{model_name}')
+        finish_training_task(dataset_id, model_name)
     except Exception as e:
         failed_training_task(dataset_id, model_name)
         raise e
-
-    finish_training_task(dataset_id, model_name)
