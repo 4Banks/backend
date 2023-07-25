@@ -260,6 +260,48 @@ def check_training_status(dataset_id: str, model_name: str) -> JSONResponse:
     else:
         return JSONResponse(content={'status': 'Treinamento não iniciado'})
 
+@app.get('/running_training_tasks', response_description='Retorna uma lista com os treinamentos em andamento',)
+def get_running_training_tasks() -> JSONResponse:
+    '''
+    Esta função retorna uma lista com os treinamentos em andamento.
+
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista com os treinamentos em andamento.
+    '''
+    running_training_tasks = []
+    for task in training_tasks:
+        if training_tasks[task]['status'] == 'running':
+            running_training_tasks.append(training_tasks[task])
+    return JSONResponse(content=running_training_tasks)
+
+@app.get('/finished_training_tasks', response_description='Retorna uma lista com os treinamentos finalizados',)
+def get_finished_training_tasks() -> JSONResponse:
+    '''
+    Esta função retorna uma lista com os treinamentos finalizados.
+
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista com os treinamentos finalizados.
+    '''
+    finished_training_tasks = []
+    for task in training_tasks:
+        if training_tasks[task]['status'] == 'finished':
+            finished_training_tasks.append(training_tasks[task])
+    return JSONResponse(content=finished_training_tasks)
+
+@app.get('/failed_training_tasks', response_description='Retorna uma lista com os treinamentos que falharam',)
+def get_failed_training_tasks() -> JSONResponse:
+    '''
+    Esta função retorna uma lista com os treinamentos que falharam.
+
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista com os treinamentos que falharam.
+    '''
+    failed_training_tasks = []
+    for task in training_tasks:
+        if training_tasks[task]['status'] == 'failed':
+            failed_training_tasks.append(training_tasks[task])
+    return JSONResponse(content=failed_training_tasks)
+
 @app.get('/pipeline/{dataset_id}/{file_name}', response_description='Executa o pipeline completo de análise de dados',)
 def execute_pipeline(dataset_id: str,
                      file_name: str,
