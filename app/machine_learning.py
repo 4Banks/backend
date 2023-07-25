@@ -22,6 +22,7 @@ SEED = 42
 training_tasks = {}
 
 def start_training_task(dataset_id: str, model_name: str) -> None:
+    print(f'Started training task for dataset {dataset_id} and model {model_name}')
     training_tasks[f'{dataset_id}_{model_name}'] = {
         'dataset_id': dataset_id,
         'model_name': model_name,
@@ -30,7 +31,13 @@ def start_training_task(dataset_id: str, model_name: str) -> None:
     }
 
 def finish_training_task(dataset_id: str, model_name: str) -> None:
+    print(f'Finished training task for dataset {dataset_id} and model {model_name}')
     training_tasks[f'{dataset_id}_{model_name}']['status'] = 'finished'
+    training_tasks[f'{dataset_id}_{model_name}']['finish_time'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+
+def failed_training_task(dataset_id: str, model_name: str) -> None:
+    print(f'Failed training task for dataset {dataset_id} and model {model_name}')
+    training_tasks[f'{dataset_id}_{model_name}']['status'] = 'failed'
     training_tasks[f'{dataset_id}_{model_name}']['finish_time'] = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
 def load_dataset(dataset_id: str, file_name: str, index: bool = False) -> pd.DataFrame:
@@ -65,38 +72,42 @@ def train_and_evaluate_model(dataset_id: str,
                              index: bool = False) -> dict:
     start_training_task(dataset_id, model_name)
 
-    if df is None:
-        df = load_dataset(dataset_id, file_name, index=index)
-    
-    y = df['Class']
+    try:
+        if df is None:
+            df = load_dataset(dataset_id, file_name, index=index)
+        
+        y = df['Class']
 
-    X = df.drop(columns=['Class'])
+        X = df.drop(columns=['Class'])
 
-    scaler = StandardScaler()
-    X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+        scaler = StandardScaler()
+        X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=SEED)
-    
-    model = get_selected_model(model_name)
-    model.fit(X_train, y_train)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, shuffle=True, random_state=SEED)
+        
+        model = get_selected_model(model_name)
+        model.fit(X_train, y_train)
 
-    y_pred = model.predict(X_test)
+        y_pred = model.predict(X_test)
 
-    metrics = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
-    metrics['accuracy'] = accuracy_score(y_test, y_pred, normalize=True)
+        metrics = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
+        metrics['accuracy'] = accuracy_score(y_test, y_pred, normalize=True)
 
-    cm = confusion_matrix(y_test, y_pred)
+        cm = confusion_matrix(y_test, y_pred)
 
-    importance = permutation_importance(model, X_test, y_test, n_repeats=10)
-    feature_importance = np.mean(importance.importances, axis=1)
-    feature_importance_ranking = {name: importance for name, importance in sorted(zip(X.columns, feature_importance), key=lambda x: x[1], reverse=True)}
-    
-    result = {
-        'performance_metrics': metrics,
-        'confusion_matrix': cm.tolist(),
-        'feature_importance': feature_importance_ranking,
-    }
+        importance = permutation_importance(model, X_test, y_test, n_repeats=10)
+        feature_importance = np.mean(importance.importances, axis=1)
+        feature_importance_ranking = {name: importance for name, importance in sorted(zip(X.columns, feature_importance), key=lambda x: x[1], reverse=True)}
+        
+        result = {
+            'performance_metrics': metrics,
+            'confusion_matrix': cm.tolist(),
+            'feature_importance': feature_importance_ranking,
+        }
 
-    save_json_to_gcs(result, dataset_id, f'{file_name}_{model_name}')
+        save_json_to_gcs(result, dataset_id, f'{file_name}_{model_name}')
+    except Exception as e:
+        failed_training_task(dataset_id, model_name)
+        raise e
 
     finish_training_task(dataset_id, model_name)
