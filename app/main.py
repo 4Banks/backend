@@ -111,22 +111,70 @@ def generate_superficial_analysis(dataset_id: str,
 
     return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'})
 
-@app.get('/outliers/{dataset_id}/{file_name}/detect', response_description='Detecta outliers em um dataset',)
-def get_dataset_outliers(dataset_id: str,
+@app.get('/outliers_detect_and_transform/{dataset_id}/{file_name}/', response_description='Detecta outliers em um dataset',)
+def detect_and_transform_dataset_outliers(dataset_id: str,
                          file_name: str,
-                         index: bool = False) -> JSONResponse:
+                         index: bool = False,
+                         z_score: bool = False,
+                         robust_z_score: bool = False,
+                         iqr: bool = False,
+                         winsorization: bool = False,
+                         treatment_method: str = None,
+                         treatment_constant_value: float = None) -> JSONResponse:
+    '''
+    Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
+    detecta outliers, trata os outliers e retorna o resultado.
+
+    Se o arquivo CSV correspondente ao `dataset_id` não for encontrado no bucket,
+    a função retorna um código de status HTTP 404 e uma mensagem de erro personalizada.
+
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
+                                        deve estar localizado no bucket do Google Cloud Storage sob o
+                                        caminho `{dataset_id}/{file_name}.csv`.
+    - `file_name` (str, obrigatório): O nome do arquivo CSV.
+    - `index` (bool, opcional): Se o DataFrame possui índice a ser carregado. O padrão é `False`.
+    - `z_score` (bool, opcional): Se o método Z-score deve ser utilizado para detecção de outliers. O padrão é `False`.
+    - `robust_z_score` (bool, opcional): Se o método Robust Z-score deve ser utilizado para detecção de outliers. O padrão é `False`.
+    - `iqr` (bool, opcional): Se o método IQR deve ser utilizado para detecção de outliers. O padrão é `False`.
+    - `winsorization` (bool, opcional): Se o método Winsorization deve ser utilizado para detecção de outliers. O padrão é `False`.
+    - `treatment_method` (str, opcional): O método de tratamento de outliers a ser utilizado. Os valores possíveis são:
+        - log
+        - sqrt
+        - cbrt
+        - scaling
+        - constant
+        - remove
+    - `treatment_constant_value` (float, opcional): O valor constante a ser utilizado no método de tratamento `constant`.
+                                                    O padrão é `None`.
+
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é um dicionário com a mensagem de que o arquivo
+                      foi salvo com sucesso e o caminho do arquivo no Google Cloud Storage.
+
+    ### Gera uma exceção:
+    - `HTTPException`: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
+                          A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
+    - `HTTPException`: Se o método de tratamento de outliers não for encontrado.
+                          A exceção contém um código de status HTTP 400 e uma mensagem detalhada.                 
+    '''
+    if treatment_method not in ['log', 'sqrt', 'cbrt', 'scaling', 'constant', 'remove', None]:
+        raise HTTPException(status_code=400, detail=f'Método "{treatment_method}" não encontrado')
+    
     if index:
         df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name, index=0)
     else:
         df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
 
-    outliers_dict = detect_outliers(df)
-
+    outliers_dict = detect_outliers(df, z_score, robust_z_score, iqr, winsorization)
     save_json_to_gcs(outliers_dict, dataset_id, f'{file_name}_outliers')
+    outliers_gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_outliers.json'
 
-    gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_outliers.json'
+    df = transform_outliers(df, outliers_dict, treatment_method, treatment_constant_value)
+    save_df_to_gcs(df, dataset_id, f'{file_name}_outliers_treated', index=index)
+    df_gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_outliers_treated.csv'
 
-    return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'})
+    return JSONResponse(content={'message': f'Outliers detectados e tratados com sucesso. Resultados salvos nos seguintes locais: {outliers_gcs_path} e {df_gcs_path}'})
 
 @app.get('/balance/{dataset_id}/{file_name}', response_description="Balanceia os dados de um dataset",)
 def balance_dataset(dataset_id: str,
@@ -237,69 +285,61 @@ def apply_machine_learning(classifier: str,
 
     return JSONResponse(content={'message': f'O treinamento do classificador "{classifier}" foi iniciado. O resultado será salvo no seguinte local: {gcs_path}'})
 
-@app.get('/training_status/{dataset_id}/{model_name}', response_description='Verifica o status de um treinamento',)
-def check_training_status(dataset_id: str, model_name: str) -> JSONResponse:
+@app.get('/running_training_tasks/{dataset_id}', response_description='Retorna uma lista com os treinamentos em andamento',)
+def get_dataset_running_training_tasks(dataset_id: str) -> JSONResponse:
     '''
-    Esta função verifica o status de um treinamento.
+    Esta função retorna uma lista com os treinamentos em andamento.
 
     ### Parâmetros:
     - `dataset_id` (str, obrigatório): O ID do dataset.
-    - `model_name` (str, obrigatório): O nome do modelo. Possíveis valores:	
-        - logistic_regression
-        - decision_tree
-        - random_forest
-        - xgboost
-        - lightgbm
-        - mlp
-
-    ### Retorna:
-    - `JSONResponse`: Um JSONResponse onde o conteúdo é um dicionário com o status do treinamento.
-    '''
-    if f'{dataset_id}_{model_name}' in training_tasks:
-        return JSONResponse(content={'status': training_tasks[f'{dataset_id}_{model_name}']})
-    else:
-        return JSONResponse(content={'status': 'Treinamento não iniciado'})
-
-@app.get('/running_training_tasks', response_description='Retorna uma lista com os treinamentos em andamento',)
-def get_running_training_tasks() -> JSONResponse:
-    '''
-    Esta função retorna uma lista com os treinamentos em andamento.
 
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista com os treinamentos em andamento.
     '''
     running_training_tasks = []
     for task in training_tasks:
-        if training_tasks[task]['status'] == 'running':
+        if task.startswith(dataset_id) and training_tasks[task]['status'] == 'running':
             running_training_tasks.append(training_tasks[task])
+    if len(running_training_tasks) == 0:
+        return JSONResponse(content={'message': 'Não há treinamentos em andamento'})
     return JSONResponse(content=running_training_tasks)
 
-@app.get('/finished_training_tasks', response_description='Retorna uma lista com os treinamentos finalizados',)
-def get_finished_training_tasks() -> JSONResponse:
+@app.get('/finished_training_tasks/{dataset_id}', response_description='Retorna uma lista com os treinamentos finalizados',)
+def get_dataset_finished_training_tasks(dataset_id: str) -> JSONResponse:
     '''
     Esta função retorna uma lista com os treinamentos finalizados.
+
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset.
 
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista com os treinamentos finalizados.
     '''
     finished_training_tasks = []
     for task in training_tasks:
-        if training_tasks[task]['status'] == 'finished':
+        if task.startswith(dataset_id) and training_tasks[task]['status'] == 'finished':
             finished_training_tasks.append(training_tasks[task])
+    if len(finished_training_tasks) == 0:
+        return JSONResponse(content={'message': 'Não há treinamentos finalizados'})
     return JSONResponse(content=finished_training_tasks)
 
-@app.get('/failed_training_tasks', response_description='Retorna uma lista com os treinamentos que falharam',)
-def get_failed_training_tasks() -> JSONResponse:
+@app.get('/failed_training_tasks/{dataset_id}', response_description='Retorna uma lista com os treinamentos que falharam',)
+def get_dataset_failed_training_tasks(dataset_id: str) -> JSONResponse:
     '''
     Esta função retorna uma lista com os treinamentos que falharam.
+
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset.
 
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista com os treinamentos que falharam.
     '''
     failed_training_tasks = []
     for task in training_tasks:
-        if training_tasks[task]['status'] == 'failed':
+        if task.startswith(dataset_id) and training_tasks[task]['status'] == 'failed':
             failed_training_tasks.append(training_tasks[task])
+    if len(failed_training_tasks) == 0:
+        return JSONResponse(content={'message': 'Não há treinamentos que falharam'})
     return JSONResponse(content=failed_training_tasks)
 
 @app.get('/pipeline/{dataset_id}/{file_name}', response_description='Executa o pipeline completo de análise de dados',)
