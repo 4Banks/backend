@@ -146,7 +146,7 @@ def detect_and_transform_dataset_outliers(dataset_id: str,
         - constant
         - remove
     - `treatment_constant_value` (float, opcional): O valor constante a ser utilizado no método de tratamento `constant`.
-                                                    O padrão é `None`.
+                                                    O padrão é `0`.
 
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é um dicionário com a mensagem de que o arquivo
@@ -353,7 +353,7 @@ def execute_pipeline(dataset_id: str,
                      outliers_iqr: bool = False,
                      outliers_winsorization: bool = False,
                      outliers_treatment_method: str = None,
-                     outliers_treatment_constant_value: float = None,
+                     outliers_treatment_constant_value: float = 0,
                      balance_method: str = None,
                      superficial_analysis: bool = False,
                      ml_logistic_regression: bool = False,
@@ -391,7 +391,7 @@ def execute_pipeline(dataset_id: str,
         - constant
         - remove
     - `outliers_treatment_constant_value` (float, opcional): O valor constante a ser utilizado no método de tratamento `constant`.
-                                                             O padrão é `None`.
+                                                             O padrão é `0`.
     - `balance_method` (str, opcional): O método de balanceamento a ser utilizado. Os valores possíveis são:
         - random_under_sampling
         - random_over_sampling

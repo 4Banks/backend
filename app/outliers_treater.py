@@ -5,7 +5,7 @@ import pandas as pd
 def transform_outliers(df: pd.DataFrame,
                        outliers_dict: dict,
                        treatment_method=None,
-                       treatment_constant_value=None):
+                       treatment_constant_value=0):
     
     df_transformed = df.copy()
     scaler = MinMaxScaler()
