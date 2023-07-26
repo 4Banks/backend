@@ -421,18 +421,10 @@ def execute_pipeline(dataset_id: str,
         df = handle_missing_data(df, missing_data_method, missing_data_constant_value)
         print('Tratamento de dados faltantes finalizado')
 
-    
     if outliers_treatment_method is not None:
         print('Iniciando tratamento de outliers...', end=' ')
-        outliers_dict = detect_outliers(df)
-        df = transform_outliers(df,
-                                outliers_dict,
-                                outliers_z_score,
-                                outliers_robust_z_score,
-                                outliers_iqr,
-                                outliers_winsorization,
-                                outliers_treatment_method,
-                                outliers_treatment_constant_value)
+        outliers_dict = detect_outliers(df, outliers_z_score, outliers_robust_z_score, outliers_iqr, outliers_winsorization)
+        df = transform_outliers(df, outliers_dict, outliers_treatment_method, outliers_treatment_constant_value)
         print('Tratamento de outliers finalizado')
 
     if balance_method is not None:
