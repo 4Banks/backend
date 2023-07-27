@@ -60,7 +60,6 @@ def get_selected_model(model:str) -> object:
         return LGBMClassifier(random_state=SEED)
     elif model == 'mlp':
         return MLPClassifier(hidden_layer_sizes=(100, 50, 25),
-                             max_iter=100,
                              alpha=0.01,
                              solver='adam',
                              random_state=SEED,
