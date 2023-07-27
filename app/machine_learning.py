@@ -17,6 +17,7 @@ import datetime
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 from dataset_manager import load_csv_from_gcs
 from json_manager import save_json_to_gcs
+from image_manager import create_decision_tree_image, save_image_to_gcs, delete_decision_tree_image
 
 SEED = 42
 training_tasks = {}
@@ -89,8 +90,13 @@ def train_and_evaluate_model(dataset_id: str,
         model = get_selected_model(model_name)
         model.fit(X_train, y_train)
 
-        y_pred = model.predict(X_test)
+        if model_name == 'decision_tree':
+            create_decision_tree_image(model, X.columns.tolist(), f'{file_name}_decision_tree')
+            save_image_to_gcs(dataset_id, f'{file_name}_decision_tree.png')
+            delete_decision_tree_image(f'{file_name}_decision_tree.png')
 
+        y_pred = model.predict(X_test)
+        
         metrics = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
         metrics['accuracy'] = accuracy_score(y_test, y_pred, normalize=True)
 

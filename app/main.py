@@ -282,6 +282,8 @@ def apply_machine_learning(classifier: str,
         raise HTTPException(status_code=400, detail=f'Classificador "{classifier}" não encontrado')
 
     gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_{classifier}.json'
+    if classifier == 'decision_tree':
+        gcs_path += f' e gs://<BUCKET_NAME>/{dataset_id}/{file_name}_{classifier}.png'
 
     return JSONResponse(content={'message': f'O treinamento do classificador "{classifier}" foi iniciado. O resultado será salvo no seguinte local: {gcs_path}'})
 
