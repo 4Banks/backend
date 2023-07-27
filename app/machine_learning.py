@@ -62,9 +62,10 @@ def get_selected_model(model:str) -> object:
         return MLPClassifier(hidden_layer_sizes=(100, 50, 25),
                           max_iter=100,
                           alpha=1e-4,
-                          solver='sgd',
+                          solver='adam',
                           random_state=SEED,
-                          learning_rate_init=0.01)
+                          learning_rate_init=0.01,
+                          verbose=True)
 
 def train_and_evaluate_model(dataset_id: str,
                              file_name: str,
