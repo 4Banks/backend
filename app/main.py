@@ -13,7 +13,7 @@ from dataset_manager import load_csv_from_gcs, save_df_to_gcs
 from json_manager import save_json_to_gcs
 from dataset_balancer import random_under_sampling, random_over_sampling, smote, bsmote, adasyn
 from missing_data_treater import handle_missing_data
-from superficial_analysis import generate_statistics
+from superficial_analysis import generate_statistics, generate_correlation_matrix
 from outliers_detector import detect_outliers
 from outliers_treater import transform_outliers
 from machine_learning import train_and_evaluate_model, training_tasks
@@ -111,16 +111,52 @@ def generate_superficial_analysis(dataset_id: str,
 
     return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'})
 
+@app.get('/correlations/{dataset_id}/{file_name}/', response_description='Calcula a correlação entre os atributos de um dataset',)
+def get_correlations(dataset_id: str,
+                                file_name: str,
+                                index: bool = False,
+                                correlation_pearson: bool = False,
+                                correlation_kendall: bool = False,
+                                correlation_spearman: bool = False) -> float:
+    '''
+    Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
+    calcula a correlação entre os atributos do dataset e salva os resultados no Google Cloud Storage.
+
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
+                                        deve estar localizado no bucket do Google Cloud Storage sob o
+                                        caminho `{dataset_id}/{file_name}.csv`.
+    - `file_name` (str, obrigatório): O nome do arquivo CSV.
+    - `index` (bool, opcional): Se o DataFrame possui índice a ser carregado. O padrão é `False`.
+    - `correlation_pearson` (bool, opcional): Se a correlação de Pearson deve ser calculada. O padrão é `False`.
+    - `correlation_kendall` (bool, opcional): Se a correlação de Kendall deve ser calculada. O padrão é `False`.
+    - `correlation_spearman` (bool, opcional): Se a correlação de Spearman deve ser calculada. O padrão é `False`.
+
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista de dicionários com as correlações calculadas.
+    '''
+    if index:
+        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name, index=0)
+    else:
+        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
+
+    generate_correlation_matrix(dataset_id, file_name, df, correlation_pearson, correlation_kendall, correlation_spearman)
+
+    if correlation_pearson or correlation_kendall or correlation_spearman:
+        gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_correlation_<CORRELATION_NAME>.csv'
+        return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'})
+    return JSONResponse(content={'message': 'Nenhuma correlação foi calculada'})
+
 @app.get('/outliers_detect_and_transform/{dataset_id}/{file_name}/', response_description='Detecta outliers em um dataset',)
 def detect_and_transform_dataset_outliers(dataset_id: str,
-                         file_name: str,
-                         index: bool = False,
-                         z_score: bool = False,
-                         robust_z_score: bool = False,
-                         iqr: bool = False,
-                         winsorization: bool = False,
-                         treatment_method: str = None,
-                         treatment_constant_value: float = None) -> JSONResponse:
+                                          file_name: str,
+                                          index: bool = False,
+                                          z_score: bool = False,
+                                          robust_z_score: bool = False,
+                                          iqr: bool = False,
+                                          winsorization: bool = False,
+                                          treatment_method: str = None,
+                                          treatment_constant_value: float = None) -> JSONResponse:
     '''
     Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
     detecta outliers, trata os outliers e retorna o resultado.
@@ -358,6 +394,9 @@ def execute_pipeline(dataset_id: str,
                      outliers_treatment_constant_value: float = 0,
                      balance_method: str = None,
                      superficial_analysis: bool = False,
+                     correlation_pearson: bool = False,
+                     correlation_kendall: bool = False,
+                     correlation_spearman: bool = False,
                      ml_logistic_regression: bool = False,
                      ml_decision_tree: bool = False,
                      ml_random_forest: bool = False,
@@ -401,6 +440,9 @@ def execute_pipeline(dataset_id: str,
         - bsmote
         - adasyn
     - `superficial_analysis` (bool, opcional): Se a análise superficial deve ser executada. O padrão é `False`.
+    - `correlation_pearson` (bool, opcional): Se a correlação de Pearson deve ser calculada. O padrão é `False`.
+    - `correlation_kendall` (bool, opcional): Se a correlação de Kendall deve ser calculada. O padrão é `False`.
+    - `correlation_spearman` (bool, opcional): Se a correlação de Spearman deve ser calculada. O padrão é `False`.
     - `ml_logistic_regression` (bool, opcional): Se a regressão logística deve ser executada. O padrão é `False`.
     - `ml_decision_tree` (bool, opcional): Se a árvore de decisão deve ser executada. O padrão é `False`.
     - `ml_random_forest` (bool, opcional): Se a floresta aleatória deve ser executada. O padrão é `False`.
@@ -450,6 +492,11 @@ def execute_pipeline(dataset_id: str,
         df_superficial_analysis = generate_statistics(df.copy())
         save_df_to_gcs(df_superficial_analysis, dataset_id, f'{file_name}_superficial_analysis', index=True)
         print('Análise superficial finalizada')
+
+    if correlation_pearson or correlation_kendall or correlation_spearman:
+        print('Iniciando cálculo de correlações...', end=' ')
+        generate_correlation_matrix(dataset_id, file_name, df, correlation_pearson, correlation_kendall, correlation_spearman)
+        print('Cálculo de correlações finalizado')
 
     print('Iniciando treinamento dos modelos...')
     if ml_logistic_regression:
