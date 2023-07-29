@@ -13,7 +13,7 @@ from dataset_manager import load_csv_from_gcs, save_df_to_gcs
 from json_manager import save_json_to_gcs
 from dataset_balancer import random_under_sampling, random_over_sampling, smote, bsmote, adasyn
 from missing_data_treater import handle_missing_data
-from superficial_analysis import generate_statistics
+from superficial_analysis import generate_statistics, generate_correlation_matrix
 from outliers_detector import detect_outliers
 from outliers_treater import transform_outliers
 from machine_learning import train_and_evaluate_model, training_tasks
@@ -22,7 +22,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://localhost:3000'],
+    allow_origins=['http://localhost:3000', 'http://34.172.61.208:3000'],
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
@@ -111,22 +111,106 @@ def generate_superficial_analysis(dataset_id: str,
 
     return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'})
 
-@app.get('/outliers/{dataset_id}/{file_name}/detect', response_description='Detecta outliers em um dataset',)
-def get_dataset_outliers(dataset_id: str,
-                         file_name: str,
-                         index: bool = False) -> JSONResponse:
+@app.get('/correlations/{dataset_id}/{file_name}/', response_description='Calcula a correlação entre os atributos de um dataset',)
+def get_correlations(dataset_id: str,
+                                file_name: str,
+                                index: bool = False,
+                                correlation_pearson: bool = False,
+                                correlation_kendall: bool = False,
+                                correlation_spearman: bool = False) -> float:
+    '''
+    Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
+    calcula a correlação entre os atributos do dataset e salva os resultados no Google Cloud Storage.
+
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
+                                        deve estar localizado no bucket do Google Cloud Storage sob o
+                                        caminho `{dataset_id}/{file_name}.csv`.
+    - `file_name` (str, obrigatório): O nome do arquivo CSV.
+    - `index` (bool, opcional): Se o DataFrame possui índice a ser carregado. O padrão é `False`.
+    - `correlation_pearson` (bool, opcional): Se a correlação de Pearson deve ser calculada. O padrão é `False`.
+    - `correlation_kendall` (bool, opcional): Se a correlação de Kendall deve ser calculada. O padrão é `False`.
+    - `correlation_spearman` (bool, opcional): Se a correlação de Spearman deve ser calculada. O padrão é `False`.
+
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista de dicionários com as correlações calculadas.
+    '''
     if index:
         df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name, index=0)
     else:
         df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
 
-    outliers_dict = detect_outliers(df)
+    generate_correlation_matrix(dataset_id, file_name, df, correlation_pearson, correlation_kendall, correlation_spearman)
 
+    if correlation_pearson or correlation_kendall or correlation_spearman:
+        gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_correlation_<CORRELATION_NAME>.csv'
+        return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'})
+    return JSONResponse(content={'message': 'Nenhuma correlação foi calculada'})
+
+@app.get('/outliers_detect_and_transform/{dataset_id}/{file_name}/', response_description='Detecta outliers em um dataset',)
+def detect_and_transform_dataset_outliers(dataset_id: str,
+                                          file_name: str,
+                                          index: bool = False,
+                                          z_score: bool = False,
+                                          robust_z_score: bool = False,
+                                          iqr: bool = False,
+                                          winsorization: bool = False,
+                                          treatment_method: str = None,
+                                          treatment_constant_value: float = None) -> JSONResponse:
+    '''
+    Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
+    detecta outliers, trata os outliers e retorna o resultado.
+
+    Se o arquivo CSV correspondente ao `dataset_id` não for encontrado no bucket,
+    a função retorna um código de status HTTP 404 e uma mensagem de erro personalizada.
+
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset. O arquivo CSV correspondente a este dataset_id
+                                        deve estar localizado no bucket do Google Cloud Storage sob o
+                                        caminho `{dataset_id}/{file_name}.csv`.
+    - `file_name` (str, obrigatório): O nome do arquivo CSV.
+    - `index` (bool, opcional): Se o DataFrame possui índice a ser carregado. O padrão é `False`.
+    - `z_score` (bool, opcional): Se o método Z-score deve ser utilizado para detecção de outliers. O padrão é `False`.
+    - `robust_z_score` (bool, opcional): Se o método Robust Z-score deve ser utilizado para detecção de outliers. O padrão é `False`.
+    - `iqr` (bool, opcional): Se o método IQR deve ser utilizado para detecção de outliers. O padrão é `False`.
+    - `winsorization` (bool, opcional): Se o método Winsorization deve ser utilizado para detecção de outliers. O padrão é `False`.
+    - `treatment_method` (str, opcional): O método de tratamento de outliers a ser utilizado. Os valores possíveis são:
+        - log
+        - sqrt
+        - cbrt
+        - scaling
+        - constant
+        - remove
+    - `treatment_constant_value` (float, opcional): O valor constante a ser utilizado no método de tratamento `constant`.
+                                                    O padrão é `0`.
+
+    ### Retorna:
+    - `JSONResponse`: Um JSONResponse onde o conteúdo é um dicionário com a mensagem de que o arquivo
+                      foi salvo com sucesso e o caminho do arquivo no Google Cloud Storage.
+
+    ### Gera uma exceção:
+    - `HTTPException`: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
+                          A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
+    - `HTTPException`: Se o método de tratamento de outliers não for encontrado.
+                          A exceção contém um código de status HTTP 400 e uma mensagem detalhada.                 
+    '''
+    if treatment_method not in ['log', 'sqrt', 'cbrt', 'scaling', 'constant', 'remove', None]:
+        raise HTTPException(status_code=400, detail=f'Método "{treatment_method}" não encontrado')
+    
+    if index:
+        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name, index=0)
+    else:
+        df = load_csv_from_gcs(dataset_id=dataset_id, file_name=file_name)
+
+    outliers_dict = detect_outliers(df, z_score, robust_z_score, iqr, winsorization)
     save_json_to_gcs(outliers_dict, dataset_id, f'{file_name}_outliers')
+    outliers_gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_outliers.json'
 
-    gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_outliers.json'
+    df = transform_outliers(df, outliers_dict, treatment_method, treatment_constant_value)
+    save_df_to_gcs(df, dataset_id, f'{file_name}_outliers_treated', index=index)
+    df_gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_outliers_treated.csv'
 
-    return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'})
+    return JSONResponse(content={'message': f'Outliers detectados e tratados com sucesso. Resultados salvos nos seguintes locais: {outliers_gcs_path} e {df_gcs_path}'})
 
 @app.get('/balance/{dataset_id}/{file_name}', response_description="Balanceia os dados de um dataset",)
 def balance_dataset(dataset_id: str,
@@ -234,72 +318,66 @@ def apply_machine_learning(classifier: str,
         raise HTTPException(status_code=400, detail=f'Classificador "{classifier}" não encontrado')
 
     gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_{classifier}.json'
+    if classifier == 'decision_tree':
+        gcs_path += f' e gs://<BUCKET_NAME>/{dataset_id}/{file_name}_{classifier}.png'
 
     return JSONResponse(content={'message': f'O treinamento do classificador "{classifier}" foi iniciado. O resultado será salvo no seguinte local: {gcs_path}'})
 
-@app.get('/training_status/{dataset_id}/{model_name}', response_description='Verifica o status de um treinamento',)
-def check_training_status(dataset_id: str, model_name: str) -> JSONResponse:
+@app.get('/running_training_tasks/{dataset_id}', response_description='Retorna uma lista com os treinamentos em andamento',)
+def get_dataset_running_training_tasks(dataset_id: str) -> JSONResponse:
     '''
-    Esta função verifica o status de um treinamento.
+    Esta função retorna uma lista com os treinamentos em andamento.
 
     ### Parâmetros:
     - `dataset_id` (str, obrigatório): O ID do dataset.
-    - `model_name` (str, obrigatório): O nome do modelo. Possíveis valores:	
-        - logistic_regression
-        - decision_tree
-        - random_forest
-        - xgboost
-        - lightgbm
-        - mlp
-
-    ### Retorna:
-    - `JSONResponse`: Um JSONResponse onde o conteúdo é um dicionário com o status do treinamento.
-    '''
-    if f'{dataset_id}_{model_name}' in training_tasks:
-        return JSONResponse(content={'status': training_tasks[f'{dataset_id}_{model_name}']})
-    else:
-        return JSONResponse(content={'status': 'Treinamento não iniciado'})
-
-@app.get('/running_training_tasks', response_description='Retorna uma lista com os treinamentos em andamento',)
-def get_running_training_tasks() -> JSONResponse:
-    '''
-    Esta função retorna uma lista com os treinamentos em andamento.
 
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista com os treinamentos em andamento.
     '''
     running_training_tasks = []
     for task in training_tasks:
-        if training_tasks[task]['status'] == 'running':
+        if task.startswith(dataset_id) and training_tasks[task]['status'] == 'running':
             running_training_tasks.append(training_tasks[task])
+    if len(running_training_tasks) == 0:
+        return JSONResponse(content={'message': 'Não há treinamentos em andamento'})
     return JSONResponse(content=running_training_tasks)
 
-@app.get('/finished_training_tasks', response_description='Retorna uma lista com os treinamentos finalizados',)
-def get_finished_training_tasks() -> JSONResponse:
+@app.get('/finished_training_tasks/{dataset_id}', response_description='Retorna uma lista com os treinamentos finalizados',)
+def get_dataset_finished_training_tasks(dataset_id: str) -> JSONResponse:
     '''
     Esta função retorna uma lista com os treinamentos finalizados.
+
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset.
 
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista com os treinamentos finalizados.
     '''
     finished_training_tasks = []
     for task in training_tasks:
-        if training_tasks[task]['status'] == 'finished':
+        if task.startswith(dataset_id) and training_tasks[task]['status'] == 'finished':
             finished_training_tasks.append(training_tasks[task])
+    if len(finished_training_tasks) == 0:
+        return JSONResponse(content={'message': 'Não há treinamentos finalizados'})
     return JSONResponse(content=finished_training_tasks)
 
-@app.get('/failed_training_tasks', response_description='Retorna uma lista com os treinamentos que falharam',)
-def get_failed_training_tasks() -> JSONResponse:
+@app.get('/failed_training_tasks/{dataset_id}', response_description='Retorna uma lista com os treinamentos que falharam',)
+def get_dataset_failed_training_tasks(dataset_id: str) -> JSONResponse:
     '''
     Esta função retorna uma lista com os treinamentos que falharam.
+
+    ### Parâmetros:
+    - `dataset_id` (str, obrigatório): O ID do dataset.
 
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é uma lista com os treinamentos que falharam.
     '''
     failed_training_tasks = []
     for task in training_tasks:
-        if training_tasks[task]['status'] == 'failed':
+        if task.startswith(dataset_id) and training_tasks[task]['status'] == 'failed':
             failed_training_tasks.append(training_tasks[task])
+    if len(failed_training_tasks) == 0:
+        return JSONResponse(content={'message': 'Não há treinamentos que falharam'})
     return JSONResponse(content=failed_training_tasks)
 
 @app.get('/pipeline/{dataset_id}/{file_name}', response_description='Executa o pipeline completo de análise de dados',)
@@ -313,9 +391,12 @@ def execute_pipeline(dataset_id: str,
                      outliers_iqr: bool = False,
                      outliers_winsorization: bool = False,
                      outliers_treatment_method: str = None,
-                     outliers_treatment_constant_value: float = None,
+                     outliers_treatment_constant_value: float = 0,
                      balance_method: str = None,
                      superficial_analysis: bool = False,
+                     correlation_pearson: bool = False,
+                     correlation_kendall: bool = False,
+                     correlation_spearman: bool = False,
                      ml_logistic_regression: bool = False,
                      ml_decision_tree: bool = False,
                      ml_random_forest: bool = False,
@@ -351,7 +432,7 @@ def execute_pipeline(dataset_id: str,
         - constant
         - remove
     - `outliers_treatment_constant_value` (float, opcional): O valor constante a ser utilizado no método de tratamento `constant`.
-                                                             O padrão é `None`.
+                                                             O padrão é `0`.
     - `balance_method` (str, opcional): O método de balanceamento a ser utilizado. Os valores possíveis são:
         - random_under_sampling
         - random_over_sampling
@@ -359,6 +440,9 @@ def execute_pipeline(dataset_id: str,
         - bsmote
         - adasyn
     - `superficial_analysis` (bool, opcional): Se a análise superficial deve ser executada. O padrão é `False`.
+    - `correlation_pearson` (bool, opcional): Se a correlação de Pearson deve ser calculada. O padrão é `False`.
+    - `correlation_kendall` (bool, opcional): Se a correlação de Kendall deve ser calculada. O padrão é `False`.
+    - `correlation_spearman` (bool, opcional): Se a correlação de Spearman deve ser calculada. O padrão é `False`.
     - `ml_logistic_regression` (bool, opcional): Se a regressão logística deve ser executada. O padrão é `False`.
     - `ml_decision_tree` (bool, opcional): Se a árvore de decisão deve ser executada. O padrão é `False`.
     - `ml_random_forest` (bool, opcional): Se a floresta aleatória deve ser executada. O padrão é `False`.
@@ -381,18 +465,10 @@ def execute_pipeline(dataset_id: str,
         df = handle_missing_data(df, missing_data_method, missing_data_constant_value)
         print('Tratamento de dados faltantes finalizado')
 
-    
     if outliers_treatment_method is not None:
         print('Iniciando tratamento de outliers...', end=' ')
-        outliers_dict = detect_outliers(df)
-        df = transform_outliers(df,
-                                outliers_dict,
-                                outliers_z_score,
-                                outliers_robust_z_score,
-                                outliers_iqr,
-                                outliers_winsorization,
-                                outliers_treatment_method,
-                                outliers_treatment_constant_value)
+        outliers_dict = detect_outliers(df, outliers_z_score, outliers_robust_z_score, outliers_iqr, outliers_winsorization)
+        df = transform_outliers(df, outliers_dict, outliers_treatment_method, outliers_treatment_constant_value)
         print('Tratamento de outliers finalizado')
 
     if balance_method is not None:
@@ -416,6 +492,11 @@ def execute_pipeline(dataset_id: str,
         df_superficial_analysis = generate_statistics(df.copy())
         save_df_to_gcs(df_superficial_analysis, dataset_id, f'{file_name}_superficial_analysis', index=True)
         print('Análise superficial finalizada')
+
+    if correlation_pearson or correlation_kendall or correlation_spearman:
+        print('Iniciando cálculo de correlações...', end=' ')
+        generate_correlation_matrix(dataset_id, file_name, df, correlation_pearson, correlation_kendall, correlation_spearman)
+        print('Cálculo de correlações finalizado')
 
     print('Iniciando treinamento dos modelos...')
     if ml_logistic_regression:
