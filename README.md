@@ -23,13 +23,7 @@ backend/
 ├── tests
 │   ├── test_dataset_balancer.py
 │   ├── test_dataset_manager.py
-│   ├── test_image_manager.py
-│   ├── test_json_manager.py
-│   ├── test_main.py
-│   ├── test_missing_data_treater.py
-│   ├── test_outliers_detector.py
-│   ├── test_outliers_treater.py
-│   ├── test_superficial_analysis.py
+│   ├── ...
 ├── requirements.txt
 ├── .gitignore
 ├── README.md
