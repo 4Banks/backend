@@ -1,5 +1,7 @@
 # Backend
 
+[![Python application test with Pytest](https://github.com/4Banks/backend/actions/workflows/pytest.yml/badge.svg?branch=dev)](https://github.com/4Banks/backend/actions/workflows/pytest.yml)
+
 Este repositório contém o código backend para uma aplicação de machine learning. A aplicação foi projetada para lidar com várias tarefas relacionadas à pré-processamento de dados, treinamento e avaliação de modelos.
 
 ## Estrutura do Projeto
