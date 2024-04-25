@@ -16,7 +16,7 @@ import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 from dataset_manager import load_csv_from_gcs
-from json_manager import save_json_to_gcs
+from json_manager import save_json
 from image_manager import create_decision_tree_image, save_image_to_gcs, delete_decision_tree_image
 
 SEED = 42
@@ -93,9 +93,9 @@ def train_and_evaluate_model(dataset_id: str,
         model.fit(X_train, y_train)
 
         if model_name == 'decision_tree':
-            create_decision_tree_image(model, X.columns.tolist(), f'{file_name}_decision_tree')
-            save_image_to_gcs(dataset_id, f'{file_name}_decision_tree.png')
-            delete_decision_tree_image(f'{file_name}_decision_tree.png')
+            create_decision_tree_image(model, X.columns.tolist(), f'app/datasets/{dataset_id}/{file_name}_decision_tree')
+            # save_image(dataset_id, f'{file_name}_decision_tree.png')
+            # delete_decision_tree_image(f'{file_name}_decision_tree.png')
 
         y_pred = model.predict(X_test)
         
@@ -114,7 +114,7 @@ def train_and_evaluate_model(dataset_id: str,
             'feature_importance': feature_importance_ranking,
         }
 
-        save_json_to_gcs(result, dataset_id, f'{file_name}_{model_name}')
+        save_json(result, dataset_id, f'{file_name}_{model_name}')
         finish_training_task(dataset_id, model_name)
     except Exception as e:
         failed_training_task(dataset_id, model_name)

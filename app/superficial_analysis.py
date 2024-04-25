@@ -1,11 +1,9 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import mode
-
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
-from dataset_manager import save_df_to_gcs
 
 def generate_statistics(df: pd.DataFrame) -> pd.DataFrame:
     '''
@@ -58,25 +56,19 @@ def generate_statistics(df: pd.DataFrame) -> pd.DataFrame:
     
     return results_df.transpose()
 
-def generate_correlation_matrix(dataset_id: str,
-                                file_name: str,
-                                df: pd.DataFrame,
+def generate_correlation_matrix(df: pd.DataFrame,
                                 correlation_pearson: bool = False,
                                 correlation_kendall: bool = False,
-                                correlation_spearman: bool = False) -> pd.DataFrame:
+                                correlation_spearman: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
     if correlation_pearson:
         print('Calculando correlação de Pearson...')
-        correlation_matrix = df.corr(method='pearson')
-        print('Salvando correlação de Pearson...')
-        save_df_to_gcs(correlation_matrix, dataset_id, f'{file_name}_correlation_pearson', index=True)
+        correlation_pearson_matrix = df.corr(method='pearson')
     if correlation_kendall:
         print('Calculando correlação de Kendall...')
-        correlation_matrix = df.corr(method='kendall')
-        print('Salvando correlação de Kendall...')
-        save_df_to_gcs(correlation_matrix, dataset_id, f'{file_name}_correlation_kendall', index=True)
+        correlation_kendall_matrix = df.corr(method='kendall')
     if correlation_spearman:
         print('Calculando correlação de Spearman...')
-        correlation_matrix = df.corr(method='spearman')
-        print('Salvando correlação de Spearman...')
-        save_df_to_gcs(correlation_matrix, dataset_id, f'{file_name}_correlation_spearman', index=True)
+        correlation_spearman_matrix = df.corr(method='spearman')
+
+    return (correlation_pearson_matrix, correlation_kendall_matrix, correlation_spearman_matrix)
