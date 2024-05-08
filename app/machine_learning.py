@@ -15,12 +15,17 @@ import os
 import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
-from dataset_manager import load_csv_from_gcs
+from dataset_manager import load_csv
 from json_manager import save_json
 from image_manager import create_decision_tree_image, save_image_to_gcs, delete_decision_tree_image
 
 SEED = 42
 training_tasks = {}
+
+def calculate_max_iter(df_length: int, base_iter: int = 200, scale_factor: float = 0.05) -> int:
+    if df_length < 100:
+        return base_iter
+    return int(base_iter + scale_factor * np.log(df_length) * base_iter)
 
 def start_training_task(dataset_id: str, model_name: str) -> None:
     print(f'Started training task for dataset {dataset_id} and model {model_name}')
@@ -43,11 +48,11 @@ def failed_training_task(dataset_id: str, model_name: str) -> None:
 
 def load_dataset(dataset_id: str, file_name: str, index: bool = False) -> pd.DataFrame:
     if index:
-        return load_csv_from_gcs(dataset_id, file_name, index_col=0)
+        return load_csv(dataset_id, file_name, index_col=0)
     else:
-        return load_csv_from_gcs(dataset_id, file_name)
+        return load_csv(dataset_id, file_name)
 
-def get_selected_model(model:str) -> object:
+def get_selected_model(model:str, max_iter) -> object:
     if model == 'logistic_regression':
         return LogisticRegression(random_state=SEED)
     elif model == 'decision_tree':
@@ -65,7 +70,8 @@ def get_selected_model(model:str) -> object:
                              random_state=SEED,
                              learning_rate='adaptive',
                              learning_rate_init=0.01,
-                             max_iter=40,
+                             max_iter=max_iter,
+                             n_iter_no_change=int(0.15*max_iter),
                              verbose=True)
 
 def train_and_evaluate_model(dataset_id: str,
@@ -80,16 +86,18 @@ def train_and_evaluate_model(dataset_id: str,
         if df is None:
             df = load_dataset(dataset_id, file_name, index=index)
         
+        max_iter = calculate_max_iter(df_length=len(df))
+        
         y = df['Class']
 
         X = df.drop(columns=['Class'])
 
-        scaler = StandardScaler()
-        X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+        #scaler = StandardScaler()
+        #X = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, shuffle=True, random_state=SEED)
         
-        model = get_selected_model(model_name)
+        model = get_selected_model(model_name, max_iter=max_iter)
         model.fit(X_train, y_train)
 
         if model_name == 'decision_tree':

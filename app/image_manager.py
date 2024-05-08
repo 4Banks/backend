@@ -57,10 +57,8 @@ def create_decision_tree_image(model, features: list, file_name: str):
                                filled=True,
                                rounded=True, 
                                special_characters=True)
-    graph = graphviz.Source(dot_data) 
-    graph.format = 'png'
-    graph.render(filename=file_name, cleanup=True)
-    sleep(1)
+    graph = graphviz.Source(dot_data)
+    graph.render(filename=file_name, cleanup=True, format = 'png')
 
 def delete_decision_tree_image(file_name):
     '''

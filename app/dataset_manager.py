@@ -130,8 +130,7 @@ def save_df_to_local(df: pd.DataFrame, dataset_id: str, file_name: str, index: b
     ### Gera uma exceção:
     - `FileNotFoundError`: Se ocorrer um erro ao tentar salvar o arquivo localmente.
     '''
-    if not os.path.exists(f'datasets/{dataset_id}'):
-        os.makedirs(f'app/datasets/{dataset_id}')
+    os.makedirs(f'app/datasets/{dataset_id}', exist_ok=True)
 
     df.to_csv(f'app/datasets/{dataset_id}/{file_name}.csv', index=index)
 

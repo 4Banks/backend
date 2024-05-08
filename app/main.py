@@ -1,22 +1,23 @@
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from app.machine_learning import train_and_evaluate_model, training_tasks
+from app.outliers_treater import transform_outliers
+from app.outliers_detector import detect_outliers
+from app.superficial_analysis import generate_statistics, generate_correlation_matrix
+from app.missing_data_treater import handle_missing_data
+from app.dataset_balancer import random_under_sampling, random_over_sampling, smote, bsmote, adasyn
+from app.json_manager import save_json
+from app.dataset_manager import load_csv, save_df
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from fastapi import HTTPException
 from google.api_core.exceptions import NotFound
 from threading import Thread
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
-from dataset_manager import load_csv, save_df
-from json_manager import save_json
-from dataset_balancer import random_under_sampling, random_over_sampling, smote, bsmote, adasyn
-from missing_data_treater import handle_missing_data
-from superficial_analysis import generate_statistics, generate_correlation_matrix
-from outliers_detector import detect_outliers
-from outliers_treater import transform_outliers
-from machine_learning import train_and_evaluate_model, training_tasks
+sys.path.insert(0, os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '.')))
 
 USE_GCS = False
 
@@ -30,6 +31,7 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
+
 @app.get('/', response_description='Retorna a mensagem de boas vindas',)
 def hello():
     '''
@@ -39,6 +41,7 @@ def hello():
     - `JSONResponse`: Um JSONResponse com uma mensagem de boas vindas.
     '''
     return JSONResponse(content={'message': '4banks API!'})
+
 
 @app.get('/dataset/{dataset_id}/{file_name}', response_description='Carrega os dados de um dataset',)
 def load_dataset(dataset_id: str,
@@ -67,12 +70,16 @@ def load_dataset(dataset_id: str,
     '''
     try:
         if index:
-            df = load_csv(dataset_id=dataset_id, file_name=file_name, index=0, from_gcs=USE_GCS)
+            df = load_csv(dataset_id=dataset_id,
+                          file_name=file_name, index=0, from_gcs=USE_GCS)
         else:
-            df = load_csv(dataset_id=dataset_id, file_name=file_name, from_gcs=USE_GCS)
+            df = load_csv(dataset_id=dataset_id,
+                          file_name=file_name, from_gcs=USE_GCS)
         return JSONResponse(content=df.head().to_dict(orient='records'))
     except NotFound:
-        raise HTTPException(status_code=404, detail=f'Dataset "{dataset_id}/{file_name}" não encontrado no bucket')
+        raise HTTPException(
+            status_code=404, detail=f'Dataset "{dataset_id}/{file_name}" não encontrado no bucket')
+
 
 @app.get('/superficial_analysis/{dataset_id}/{file_name}/', response_description='Gera estatísticas superficiais sobre os dados de um dataset',)
 def generate_superficial_analysis(dataset_id: str,
@@ -101,28 +108,32 @@ def generate_superficial_analysis(dataset_id: str,
                        A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
     '''
     if index:
-        df = load_csv(dataset_id=dataset_id, file_name=file_name, index=0, from_gcs=USE_GCS)
+        df = load_csv(dataset_id=dataset_id, file_name=file_name,
+                      index=0, from_gcs=USE_GCS)
     else:
-        df = load_csv(dataset_id=dataset_id, file_name=file_name, from_gcs=USE_GCS)
+        df = load_csv(dataset_id=dataset_id,
+                      file_name=file_name, from_gcs=USE_GCS)
 
     df = generate_statistics(df)
 
-    save_df(df, dataset_id, f'{file_name}_superficial_analysis', index=True, to_gcs=USE_GCS)
+    save_df(df, dataset_id,
+            f'{file_name}_superficial_analysis', index=True, to_gcs=USE_GCS)
 
     if USE_GCS:
         gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_superficial_analysis.csv'
         return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {gcs_path}'})
-    
+
     local_path = f'app/datasets/{dataset_id}/{file_name}_superficial_analysis.csv'
     return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {local_path}'})
 
+
 @app.get('/correlations/{dataset_id}/{file_name}/', response_description='Calcula a correlação entre os atributos de um dataset',)
 def get_correlations(dataset_id: str,
-                                file_name: str,
-                                index: bool = False,
-                                correlation_pearson: bool = False,
-                                correlation_kendall: bool = False,
-                                correlation_spearman: bool = False) -> float:
+                     file_name: str,
+                     index: bool = False,
+                     correlation_pearson: bool = False,
+                     correlation_kendall: bool = False,
+                     correlation_spearman: bool = False) -> float:
     '''
     Esta função carrega os dados de um dataset a partir do bucket do Google Cloud Storage,
     calcula a correlação entre os atributos do dataset e salva os resultados no Google Cloud Storage.
@@ -148,24 +159,29 @@ def get_correlations(dataset_id: str,
 
     if correlation_pearson or correlation_kendall or correlation_spearman:
         if index:
-            df = load_csv(dataset_id=dataset_id, file_name=file_name, index=0, from_gcs=USE_GCS)
+            df = load_csv(dataset_id=dataset_id,
+                          file_name=file_name, index=0, from_gcs=USE_GCS)
         else:
-            df = load_csv(dataset_id=dataset_id, file_name=file_name, from_gcs=USE_GCS)
-        
-        correlations_matrixes = generate_correlation_matrix(df, correlation_pearson, correlation_kendall, correlation_spearman)
+            df = load_csv(dataset_id=dataset_id,
+                          file_name=file_name, from_gcs=USE_GCS)
+
+        correlations_matrixes = generate_correlation_matrix(
+            df, correlation_pearson, correlation_kendall, correlation_spearman)
 
         for correlation_index, correlation_name in enumerate(correlations):
             if correlations[correlation_name]:
-                save_df(correlations_matrixes[correlation_index], dataset_id, f'{file_name}_correlation_{correlation_name}', index=True, to_gcs=USE_GCS)
+                save_df(correlations_matrixes[correlation_index], dataset_id,
+                        f'{file_name}_correlation_{correlation_name}', index=True, to_gcs=USE_GCS)
 
         if USE_GCS:
             gcs_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_correlation_<correlation_name>.csv'
             return JSONResponse(content={'message': f'Resultados salvos com sucesso no seguinte local: {gcs_path}'})
-        
+
         local_path = f'app/datasets/{dataset_id}/{file_name}_correlation_<correlation_name>.csv'
         return JSONResponse(content={'message': f'Resultado salvo com sucesso no seguinte local: {local_path}'})
-    
+
     return JSONResponse(content={'message': 'Nenhuma correlação foi calculada'})
+
 
 @app.get('/outliers_detect_and_transform/{dataset_id}/{file_name}/', response_description='Detecta outliers em um dataset',)
 def detect_and_transform_dataset_outliers(dataset_id: str,
@@ -215,16 +231,19 @@ def detect_and_transform_dataset_outliers(dataset_id: str,
                           A exceção contém um código de status HTTP 400 e uma mensagem detalhada.                 
     '''
     if treatment_method not in ['log', 'sqrt', 'cbrt', 'scaling', 'constant', 'remove', None]:
-        raise HTTPException(status_code=400, detail=f'Método "{treatment_method}" não encontrado')
-    
+        raise HTTPException(
+            status_code=400, detail=f'Método "{treatment_method}" não encontrado')
+
     if index:
         df = load_csv(dataset_id=dataset_id, file_name=file_name, index=0)
     else:
         df = load_csv(dataset_id=dataset_id, file_name=file_name)
 
-    outliers_dict = detect_outliers(df, z_score, robust_z_score, iqr, winsorization)
-    df = transform_outliers(df, outliers_dict, treatment_method, treatment_constant_value)
-    
+    outliers_dict = detect_outliers(
+        df, z_score, robust_z_score, iqr, winsorization)
+    df = transform_outliers(
+        df, outliers_dict, treatment_method, treatment_constant_value)
+
     if USE_GCS:
         save_json(outliers_dict, dataset_id, f'{file_name}_outliers')
         outliers_path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_outliers.json'
@@ -235,6 +254,7 @@ def detect_and_transform_dataset_outliers(dataset_id: str,
         df_path = f'app/datasets/{dataset_id}/{file_name}_outliers_treated.csv'
 
     return JSONResponse(content={'message': f'Outliers detectados e tratados com sucesso. Resultados salvos nos seguintes locais: {outliers_path} e {df_path}'})
+
 
 @app.get('/balance/{dataset_id}/{file_name}', response_description="Balanceia os dados de um dataset",)
 def balance_dataset(dataset_id: str,
@@ -264,7 +284,7 @@ def balance_dataset(dataset_id: str,
     ### Retorna:
     - `JSONResponse`: Um JSONResponse onde o conteúdo é um dicionário com a mensagem de que o arquivo 
                       foi salvo com sucesso e o caminho do arquivo no Google Cloud Storage.
-    
+
     ### Gera uma exceção:
     - `HTTPException`: Se o arquivo CSV correspondente ao dataset_id não for encontrado no bucket.
                        A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
@@ -272,7 +292,8 @@ def balance_dataset(dataset_id: str,
                        A exceção contém um código de status HTTP 400 e uma mensagem detalhada.
     '''
     if index:
-        df = load_csv(dataset_id=dataset_id, file_name=file_name, index=0, from_gcs=USE_GCS)
+        df = load_csv(dataset_id=dataset_id, file_name=file_name,
+                      index=0, from_gcs=USE_GCS)
     else:
         df = load_csv(dataset_id=dataset_id, file_name=file_name)
 
@@ -287,8 +308,9 @@ def balance_dataset(dataset_id: str,
     elif method == 'adasyn':
         df = adasyn(df)
     else:
-        raise HTTPException(status_code=400, detail=f'Método "{method}" não encontrado')
-    
+        raise HTTPException(
+            status_code=400, detail=f'Método "{method}" não encontrado')
+
     save_df(df, dataset_id, f'{file_name}_{method}', index=index)
 
     if USE_GCS:
@@ -296,6 +318,7 @@ def balance_dataset(dataset_id: str,
     else:
         path = f'app/datasets/{dataset_id}/{file_name}_{method}.csv'
     return {'message': f'Resultado salvo com sucesso no seguinte local: {path}'}
+
 
 @app.get('/machine_learning/{dataset_id}/{file_name}/{classifier}', response_description='Aplica um algoritmo de Machine Learning em um dataset',)
 def apply_machine_learning(classifier: str,
@@ -333,7 +356,7 @@ def apply_machine_learning(classifier: str,
                        A exceção contém um código de status HTTP 404 e uma mensagem detalhada.
     - `HTTPException`: Se o classificador não for encontrado.
                        A exceção contém um código de status HTTP 400 e uma mensagem detalhada.
-    '''    
+    '''
     if classifier in ['logistic_regression', 'decision_tree', 'random_forest', 'xgboost', 'lightgbm', 'mlp']:
         Thread(target=train_and_evaluate_model, kwargs={
             'dataset_id': dataset_id,
@@ -341,7 +364,8 @@ def apply_machine_learning(classifier: str,
             'model_name': classifier,
             'index': index}).start()
     else:
-        raise HTTPException(status_code=400, detail=f'Classificador "{classifier}" não encontrado')
+        raise HTTPException(
+            status_code=400, detail=f'Classificador "{classifier}" não encontrado')
 
     if USE_GCS:
         path = f'gs://<BUCKET_NAME>/{dataset_id}/{file_name}_{classifier}.json'
@@ -350,9 +374,10 @@ def apply_machine_learning(classifier: str,
     else:
         path = f'app/datasets/{dataset_id}/{file_name}_{classifier}.json'
         if classifier == 'decision_tree':
-            path += f' e app/datasets/{dataset_id}/{file_name}_{classifier}.png'    
+            path += f' e app/datasets/{dataset_id}/{file_name}_{classifier}.png'
 
     return JSONResponse(content={'message': f'O treinamento do classificador "{classifier}" foi iniciado. O resultado será salvo no seguinte local: {path}'})
+
 
 @app.get('/running_training_tasks/{dataset_id}', response_description='Retorna uma lista com os treinamentos em andamento',)
 def get_dataset_running_training_tasks(dataset_id: str) -> JSONResponse:
@@ -371,7 +396,9 @@ def get_dataset_running_training_tasks(dataset_id: str) -> JSONResponse:
             running_training_tasks.append(training_tasks[task])
     if len(running_training_tasks) == 0:
         return JSONResponse(content={'message': 'Não há treinamentos em andamento'})
+    print(f'Running tasks: {running_training_tasks}')
     return JSONResponse(content=running_training_tasks)
+
 
 @app.get('/finished_training_tasks/{dataset_id}', response_description='Retorna uma lista com os treinamentos finalizados',)
 def get_dataset_finished_training_tasks(dataset_id: str) -> JSONResponse:
@@ -390,7 +417,9 @@ def get_dataset_finished_training_tasks(dataset_id: str) -> JSONResponse:
             finished_training_tasks.append(training_tasks[task])
     if len(finished_training_tasks) == 0:
         return JSONResponse(content={'message': 'Não há treinamentos finalizados'})
+    print(f'Finished tasks: {finished_training_tasks}')
     return JSONResponse(content=finished_training_tasks)
+
 
 @app.get('/failed_training_tasks/{dataset_id}', response_description='Retorna uma lista com os treinamentos que falharam',)
 def get_dataset_failed_training_tasks(dataset_id: str) -> JSONResponse:
@@ -410,6 +439,7 @@ def get_dataset_failed_training_tasks(dataset_id: str) -> JSONResponse:
     if len(failed_training_tasks) == 0:
         return JSONResponse(content={'message': 'Não há treinamentos que falharam'})
     return JSONResponse(content=failed_training_tasks)
+
 
 @app.get('/pipeline/{dataset_id}/{file_name}', response_description='Executa o pipeline completo de análise de dados',)
 def execute_pipeline(dataset_id: str,
@@ -486,20 +516,25 @@ def execute_pipeline(dataset_id: str,
     '''
     print('Iniciando pipeline...')
     if index:
-        df = load_csv(dataset_id=dataset_id, file_name=file_name, index=0, from_gcs=USE_GCS)
+        df = load_csv(dataset_id=dataset_id, file_name=file_name,
+                      index=0, from_gcs=USE_GCS)
     else:
-        df = load_csv(dataset_id=dataset_id, file_name=file_name, from_gcs=USE_GCS)
+        df = load_csv(dataset_id=dataset_id,
+                      file_name=file_name, from_gcs=USE_GCS)
     print('Dados carregados com sucesso')
 
     if missing_data_method is not None:
         print('Iniciando tratamento de dados faltantes...', end=' ')
-        df = handle_missing_data(df, missing_data_method, missing_data_constant_value)
+        df = handle_missing_data(
+            df, missing_data_method, missing_data_constant_value)
         print('Tratamento de dados faltantes finalizado')
 
     if outliers_treatment_method is not None:
         print('Iniciando tratamento de outliers...', end=' ')
-        outliers_dict = detect_outliers(df, outliers_z_score, outliers_robust_z_score, outliers_iqr, outliers_winsorization)
-        df = transform_outliers(df, outliers_dict, outliers_treatment_method, outliers_treatment_constant_value)
+        outliers_dict = detect_outliers(
+            df, outliers_z_score, outliers_robust_z_score, outliers_iqr, outliers_winsorization)
+        df = transform_outliers(
+            df, outliers_dict, outliers_treatment_method, outliers_treatment_constant_value)
         print('Tratamento de outliers finalizado')
 
     if balance_method is not None:
@@ -515,13 +550,15 @@ def execute_pipeline(dataset_id: str,
         elif balance_method == 'adasyn':
             df = adasyn(df)
         else:
-            raise HTTPException(status_code=400, detail=f'Método "{balance_method}" não encontrado')
+            raise HTTPException(
+                status_code=400, detail=f'Método "{balance_method}" não encontrado')
         print('Balanceamento finalizado')
-    
+
     if superficial_analysis:
         print('Iniciando análise superficial...', end=' ')
         df_superficial_analysis = generate_statistics(df.copy())
-        save_df(df_superficial_analysis, dataset_id, f'{file_name}_superficial_analysis', index=True, to_gcs=USE_GCS)
+        save_df(df_superficial_analysis, dataset_id,
+                f'{file_name}_superficial_analysis', index=True, to_gcs=USE_GCS)
         print('Análise superficial finalizada')
 
     if correlation_pearson or correlation_kendall or correlation_spearman:
@@ -531,10 +568,12 @@ def execute_pipeline(dataset_id: str,
             'spearman': correlation_spearman
         }
         print('Iniciando cálculo de correlações...', end=' ')
-        correlations_matrixes = generate_correlation_matrix(df, correlation_pearson, correlation_kendall, correlation_spearman)
+        correlations_matrixes = generate_correlation_matrix(
+            df, correlation_pearson, correlation_kendall, correlation_spearman)
         for correlation_index, correlation_name in enumerate(correlations):
             if correlations[correlation_name]:
-                save_df(correlations_matrixes[correlation_index], dataset_id, f'{file_name}_correlation_{correlation_name}', index=True, to_gcs=USE_GCS)
+                save_df(correlations_matrixes[correlation_index], dataset_id,
+                        f'{file_name}_correlation_{correlation_name}', index=True, to_gcs=USE_GCS)
         print('Cálculo de correlações finalizado')
 
     print('Iniciando treinamento dos modelos...')
@@ -545,7 +584,7 @@ def execute_pipeline(dataset_id: str,
             'model_name': 'logistic_regression',
             'df': df,
             'index': index}).start()
-        
+
     if ml_decision_tree:
         Thread(target=train_and_evaluate_model, kwargs={
             'dataset_id': dataset_id,
@@ -553,7 +592,7 @@ def execute_pipeline(dataset_id: str,
             'model_name': 'decision_tree',
             'df': df,
             'index': index}).start()
-        
+
     if ml_random_forest:
         Thread(target=train_and_evaluate_model, kwargs={
             'dataset_id': dataset_id,
@@ -591,9 +630,34 @@ def execute_pipeline(dataset_id: str,
     if USE_GCS:
         message += f' Os resultados serão salvos no seguinte local: gs://<BUCKET_NAME>/{dataset_id}/'
         return JSONResponse(content={'message': message, 'use_gcs': True})
-    
+
     message += f' Os resultados serão salvos no seguinte local: app/datasets/{dataset_id}/'
     return JSONResponse(content={'message': message, 'use_gcs': False})
+
+
+@app.post("/upload/{dataset_id}/")
+async def upload_file(dataset_id: str, file: UploadFile = File(...)):
+    os.makedirs(f"app/datasets/{dataset_id}", exist_ok=True)
+    file_location = f"app/datasets/{dataset_id}/{file.filename}"
+
+    try:
+        with open(file_location, "wb") as f:
+            content = await file.read()
+            f.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"info": "File saved successfully", "file_path": file_location}
+
+
+@app.get('/datasets/{dataset_id}/{file_name}')
+def serve_file(dataset_id: str, file_name: str):
+    file_path = f'app/datasets/{dataset_id}/{file_name}'
+    if os.path.exists(file_path):
+        return FileResponse(path=file_path)
+    else:
+        raise HTTPException(status_code=404, detail="File not found")
+
 
 def custom_openapi():
     '''
@@ -611,6 +675,7 @@ def custom_openapi():
     )
     app.openapi_schema = openapi_schema
     return app.openapi_schema
+
 
 app.openapi = custom_openapi
 

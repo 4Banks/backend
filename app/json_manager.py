@@ -48,8 +48,7 @@ def save_json_to_local(data: dict, dataset_id: str, file_name: str) -> None:
     ### Gera uma exceção:
     - `FileNotFoundError`: Se ocorrer um erro ao tentar salvar o arquivo localmente.
     '''
-    if not os.path.exists(f'datasets/{dataset_id}'):
-        os.makedirs(f'app/datasets/{dataset_id}')
+    os.makedirs(f'app/datasets/{dataset_id}', exist_ok=True)
 
     with open(f'app/datasets/{dataset_id}/{file_name}.json', 'w') as file:
         json.dump(data, file, cls=numpy_encoder)
